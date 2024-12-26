@@ -9,6 +9,14 @@ export interface IntensityConfig {
   high: number;
 }
 
+export interface ColorConfig {
+  level0: string;
+  level1: string;
+  level2: string;
+  level3: string;
+  level4: string;
+}
+
 export interface DayData {
   totalDelta: number;
   files: {

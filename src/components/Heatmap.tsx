@@ -6,13 +6,14 @@ import {
 } from "../components/ui/tooltip";
 
 import React from "react";
-import { WordCountData, IntensityConfig } from "../types";
+import { WordCountData, IntensityConfig, ColorConfig } from "../types";
 import { Overview } from "./Overview";
 
 interface HeatmapProps {
   data: WordCountData;
   intensityLevels: IntensityConfig;
-  showOverview?: boolean; // New optional prop
+  colors: ColorConfig;
+  showOverview?: boolean;
 }
 
 interface HeatmapCellProps {
@@ -48,8 +49,10 @@ const HeatmapCell = ({
         <div className={`heatmap-square level-${getIntensityLevel(count)}`} />
       </TooltipTrigger>
       <TooltipContent className="custom-tooltip">
-        <div className="">{new Date(date).toLocaleDateString()}</div>
-        <div className="">+{count} words</div>
+        <div className="tooltip-date">
+          {new Date(date).toISOString().split("T")[0]}
+        </div>
+        <div className="tooltip-wordCount">+{count} words</div>
       </TooltipContent>
     </Tooltip>
   );
@@ -58,7 +61,8 @@ const HeatmapCell = ({
 export const Heatmap = ({
   data,
   intensityLevels,
-  showOverview = true, // Default to true for backward compatibility
+  colors,
+  showOverview = true,
 }: HeatmapProps) => {
   const today = new Date();
   const weeksToShow = 52;
@@ -110,7 +114,6 @@ export const Heatmap = ({
 
   return (
     <div className="component-wrapper">
-      {/* Conditionally render Overview based on showOverview prop */}
       {showOverview && <Overview data={data} />}
       <TooltipProvider>
         <div className="heatmap-wrapper">

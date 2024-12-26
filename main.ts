@@ -6,25 +6,33 @@ import {
   MarkdownView,
   ItemView,
   setIcon,
-} from "obsidian"; // Add MarkdownView to imports
+} from "obsidian";
 import { v4 as uuidv4 } from "uuid";
 
 import { WordCountView, VIEW_TYPE } from "./src/views/WordCountView";
 import { WordCountData } from "src/types";
 import "./styles.css";
-import { IntensityConfig } from "src/types";
+import { IntensityConfig, ColorConfig } from "src/types";
 import { SettingsTab } from "./src/views/SettingsTab";
 
 interface PluginSettings {
   intensityLevels: IntensityConfig;
   showOverview: boolean;
+  colors: ColorConfig;
 }
 
-const DEFAULT_SETTINGS: PluginSettings = {
+export const DEFAULT_SETTINGS: PluginSettings = {
   intensityLevels: {
     low: 100,
     medium: 500,
     high: 1000,
+  },
+  colors: {
+    level0: "#ebedf015",
+    level1: "#9be9a8",
+    level2: "#40c463",
+    level3: "#30a14e",
+    level4: "#216e39",
   },
   showOverview: true,
 };
@@ -54,6 +62,7 @@ export default class WordCountPlugin extends Plugin {
     await this.saveData({
       intensityLevels: this.settings.intensityLevels,
       showOverview: this.settings.showOverview,
+      colors: this.settings.colors,
     });
     const allDevicesData = await this.loadAllDevicesData();
     this.viewData = this.mergeDevicesData(allDevicesData);
@@ -65,12 +74,17 @@ export default class WordCountPlugin extends Plugin {
       new SettingsTab(this.app, this, {
         intensityLevels: this.settings.intensityLevels,
         showOverview: this.settings.showOverview,
+        colors: this.settings.colors,
         onIntensityLevelsChange: (newLevels) => {
           this.settings.intensityLevels = newLevels;
           this.saveSettings();
         },
         onShowOverviewChange: (newShowOverview) => {
           this.settings.showOverview = newShowOverview;
+          this.saveSettings();
+        },
+        onColorsChange: (newColors) => {
+          this.settings.colors = newColors;
           this.saveSettings();
         },
       }),
@@ -105,6 +119,24 @@ export default class WordCountPlugin extends Plugin {
     this.viewData = this.mergeDevicesData(allDevicesData);
   }
 
+  private applyColorStyles() {
+    let styleEl = document.getElementById("word-count-heatmap-colors");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "word-count-heatmap-colors";
+      document.head.appendChild(styleEl);
+    }
+
+    const colors = this.settings.colors;
+    styleEl.textContent = `
+    .level-0 { background-color: ${colors.level0}; }
+    .level-1 { background-color: ${colors.level1}; }
+    .level-2 { background-color: ${colors.level2}; }
+    .level-3 { background-color: ${colors.level3}; }
+    .level-4 { background-color: ${colors.level4}; }
+  `;
+  }
+
   async activateView() {
     const { workspace } = this.app;
     if (workspace.getLeavesOfType(VIEW_TYPE).length > 0) {
@@ -123,6 +155,7 @@ export default class WordCountPlugin extends Plugin {
     await this.loadSettings();
     this.createSettingsTab();
     await this.initializeData();
+    this.applyColorStyles();
 
     this.registerView(VIEW_TYPE, (leaf) => {
       this.view = new WordCountView(leaf, this);
@@ -375,7 +408,6 @@ export default class WordCountPlugin extends Plugin {
 
       await this.saveDeviceData(this.data);
 
-      // Update the view data and refresh the view
       const allDevicesData = await this.loadAllDevicesData();
       this.viewData = this.mergeDevicesData(allDevicesData);
       this.view?.refresh();
