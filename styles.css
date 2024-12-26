@@ -95,7 +95,7 @@
   position: absolute;
   background: linear-gradient(
     to right,
-    var(--background-primary) 55%,
+    var(--background-primary) 65%,
     transparent
   );
   padding-right: 10px;
