@@ -26,8 +26,7 @@ class ConfirmationModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl("h2", { text: "Confirm Action" });
-
+    contentEl.createEl("h3", { text: "Confirm Action" });
     contentEl.createEl("p", { text: this.message });
 
     new Setting(contentEl)
@@ -144,7 +143,7 @@ export class SettingsTab extends PluginSettingTab {
             this.options.onShowOverviewChange(value);
           }),
       );
-    containerEl.createEl("h2", { text: "Heatmap Colors" });
+    new Setting(containerEl).setName("Heatmap Colors").setHeading();
     // Color for Level 0 (No activity)
     new Setting(containerEl)
       .setName("No Activity Color")
@@ -160,7 +159,6 @@ export class SettingsTab extends PluginSettingTab {
       );
 
     // Color for Level 1
-
     new Setting(containerEl)
       .setName("Low Activity Color")
       .setDesc("Color for minimal writing activity")
@@ -224,7 +222,6 @@ export class SettingsTab extends PluginSettingTab {
           .setButtonText("Restore Defaults")
           .setCta()
           .onClick(() => {
-            // Create and open the confirmation modal
             new ConfirmationModal(
               this.plugin.app,
               "Are you sure you want to restore default settings? This will reset all Word Count plugin settings to their original values.",
