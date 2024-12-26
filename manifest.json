@@ -1,11 +1,11 @@
 {
-	"id": "daily-word-counter",
-	"name": "Daily Word Counter",
+	"id": "keep-the-rhythm",
+	"name": "Keep the Rhythm",
 	"version": "0.0.1",
-	"minAppVersion": "0.0.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
+	"minAppVersion": "1.0.0",
+	"description": "Tracks daily word count.",
 	"author": "Ezben",
-	"authorUrl": "https://obsidian.md",
+	"authorUrl": "https://www.benjaminezequiel.com/",
 	"fundingUrl": "https://obsidian.md/pricing",
 	"isDesktopOnly": false
 }
