@@ -2,6 +2,8 @@
 
 Keep the Rhythm is an Obsidian plugin that helps you maintain a consistent writing practice by tracking your daily word count and visualizing it through an elegant heatmap. See your writing patterns at a glance and stay motivated to maintain your writing rhythm.
 
+![plugin-heatmap](docs/image.png)
+
 ## Features
 
 - **Daily Word Count Tracking**: Automatically tracks how many words you write each day in Obsidian
