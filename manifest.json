@@ -1,0 +1,11 @@
+{
+	"id": "daily-word-counter",
+	"name": "Daily Word Counter",
+	"version": "0.0.1",
+	"minAppVersion": "0.0.0",
+	"description": "Demonstrates some of the capabilities of the Obsidian API.",
+	"author": "Ezben",
+	"authorUrl": "https://obsidian.md",
+	"fundingUrl": "https://obsidian.md/pricing",
+	"isDesktopOnly": false
+}
