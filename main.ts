@@ -1,20 +1,17 @@
+import { getCorePluginSettings } from "@/windowUtility";
+import { setApp } from "@/utils";
 import { formatDate } from "@/utils";
-import { PluginCoreUI } from "@/views/WordCountView";
+import { PluginCoreUI, VIEW_TYPE } from "@/views/CoreUI";
 import { migrateFromJSON } from "@/migrateData";
 import previousData from "./previous-data.json";
-import { randomUUID } from "crypto";
-import { VIEW_TYPE } from "@/views/WordCountView";
+// import { periodicNotes } from "@/windowUtility";
 import {
-	debounce,
-	Plugin,
-	TFile,
-	TAbstractFile,
-	MarkdownView,
-	Notice,
-	MarkdownPostProcessor,
-	MarkdownPostProcessorContext,
-	MarkdownRenderChild,
-} from "obsidian";
+	getDailyNote,
+	appHasDailyNotesPluginLoaded,
+	getAllDailyNotes,
+} from "obsidian-daily-notes-interface";
+import { randomUUID } from "crypto";
+import { Plugin, TFile, TAbstractFile, MarkdownView } from "obsidian";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "src/types";
 import {
 	handleFileCreate,
@@ -22,78 +19,57 @@ import {
 	handleFileModify,
 	handleFileRename,
 	handleFileOpen,
+	eventEmitter,
+	EVENTS,
 } from "@/events";
 import { initializeFileStats } from "@/initializeFileStats";
-import { db } from "@/db";
-import "./styles.css";
+import { db, getActivityByDate, DailyActivity } from "@/db";
+import { Settings } from "http2";
+import { DBCoreRangeType } from "dexie";
+import { log } from "@/utils";
 
-// import { db } from "@/db";
-// import { v4 as uuidv4 } from "uuid";
-// import {
-// 	createRegex,
-// 	getWordCount,
-// 	getExternalWordCount,
-// } from "@/wordCounting";
-// import { WordCountView, VIEW_TYPE } from "./src/views/WordCountView";
-// import { createRoot } from "react-dom/client";
-// import React from "react";
-// import { Heatmap } from "@/components/Heatmap";
-// import { handleFileOpen } from "@/events/fileOpen";
-// import { SettingsTab } from "./src/views/SettingsTab";
-// import {
-// 	getCurrentDate,
-// 	parsePathFilters,
-// 	parseToggles,
-// 	formatDate,
-// 	getFileNameWithoutExtension,
-// } from "@/utils";
-// import { db } from "@/db";
-// import { Vault } from "obsidian";
+// export async function mockWeeklyDailyActivity() {
+// 	const today = new Date();
+// 	const activities: DailyActivity[] = [];
+
+// 	for (let i = 0; i < 7; i++) {
+// 		const day = new Date(today);
+// 		day.setDate(today.getDate() - i);
+
+// 		const dateStr = day.toISOString().split("T")[0]; // YYYY-MM-DD
+
+// 		activities.push({
+// 			date: dateStr,
+// 			device: "Laptop",
+// 			filePath: `/mock/path/file-${i}.md`,
+// 			wordsWritten: Math.floor(Math.random() * 500 + 100),
+// 			charsWritten: Math.floor(Math.random() * 2000 + 500),
+// 			created: i % 2 === 0, // Alternate between true/false
+// 		});
+// 	}
+
+// 	await db.dailyActivity.bulkAdd(activities);
+// 	console.log("Mocked weekly activity added!");
+// }
 
 export default class KeepTheRhythm extends Plugin {
-	// defs
 	regex: RegExp;
 	data: PluginData;
 	deviceId: string;
-	private view: PluginCoreUI | null;
-
-	private applyColorStyles() {
-		const containerStyle = this.app.workspace.containerEl.style;
-		let light = undefined;
-		let dark = undefined;
-
-		if (this.data.settings.colors) {
-			light = this.data.settings.colors?.light;
-			dark = this.data.settings.colors?.dark;
-		}
-
-		if (light && dark) {
-			for (let i = 0; i <= 4; i++) {
-				const key = i as keyof ColorConfig;
-				containerStyle.setProperty(`--light-${i}`, light[key]);
-				containerStyle.setProperty(`--dark-${i}`, dark[key]);
-			}
-		}
-	}
+	view: PluginCoreUI | null;
 
 	async onload() {
+		setApp(this.app);
+
 		const loadedData = await this.loadData();
-
-		this.addCommand({
-			id: "open-keep-the-rhythm",
-			name: "Open tracking heatmap",
-			callback: () => {
-				this.activateView();
-			},
-		});
-
 		if (!loadedData) {
-			// load default settings if there isn't saved data
 			this.data = { settings: DEFAULT_SETTINGS };
 			await this.saveData(this.data);
 		} else {
 			this.data = loadedData;
 		}
+
+		// console.log(moment);
 
 		await initializeFileStats(
 			this.app.vault,
@@ -101,15 +77,17 @@ export default class KeepTheRhythm extends Plugin {
 		);
 
 		// await migrateFromJSON(previousData);
-		this.registerView(VIEW_TYPE, (leaf) => {
-			this.view = new PluginCoreUI(leaf, this);
-			return this.view;
-		});
 
 		this.setDeviceId();
 		this.saveStatsDataToJSON();
-		this.initializePluginEvents();
+		this.initializeViews();
+		this.initializeCommands();
+		this.initializeEvents();
 		this.applyColorStyles();
+
+		setInterval(() => {
+			eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
+		}, 5000);
 	}
 
 	private setDeviceId() {
@@ -122,11 +100,10 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	async activateView() {
-		const { workspace } = this.app;
-		if (workspace.getLeavesOfType(VIEW_TYPE).length > 0) {
-			return;
+		if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0) {
+			return; // view is already opened
 		}
-		const leaf = workspace.getRightLeaf(false);
+		const leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) {
 			await leaf.setViewState({
 				type: VIEW_TYPE,
@@ -135,29 +112,36 @@ export default class KeepTheRhythm extends Plugin {
 		}
 	}
 
-	private async saveStatsDataToJSON() {
-		const t0 = performance.now();
-		const fileStats = await db.fileStats.toArray();
-		const dailyActivity = await db.dailyActivity.toArray();
-
-		this.data.stats = {
-			fileStats: fileStats,
-			dailyActivity: dailyActivity,
-		};
-
-		await this.saveData(this.data);
-		const t1 = performance.now();
-		console.info(
-			`%cKEEP THE RHYTHM%c Data saved in JSON in ${Math.round(t1 - t0)} milliseconds.`,
-			"font-weight: bold; color: purple;",
-			"font-weight: normal",
-		);
+	private initializeViews() {
+		this.registerView(VIEW_TYPE, (leaf) => {
+			this.view = new PluginCoreUI(leaf, this);
+			return this.view;
+		});
 	}
 
-	private initializePluginEvents() {
+	private initializeCommands() {
+		this.addCommand({
+			id: "open-keep-the-rhythm",
+			name: "Open tracking heatmap",
+			callback: () => {
+				this.activateView();
+			},
+		});
+
+		this.addCommand({
+			id: "reset-keep-the-rhythm",
+			name: "Reset Settings",
+			callback: () => {
+				this.data.settings = DEFAULT_SETTINGS;
+				this.saveData(this.data);
+				log("settings reseted");
+			},
+		});
+	}
+	private initializeEvents() {
 		this.registerEvent(
 			this.app.vault.on("modify", (file: TAbstractFile) => {
-				if (file instanceof TFile) handleFileModify(file);
+				if (file instanceof TFile) handleFileModify(file, this);
 			}),
 		);
 		this.registerEvent(
@@ -181,14 +165,75 @@ export default class KeepTheRhythm extends Plugin {
 					leaf?.view instanceof MarkdownView &&
 					leaf?.view.file instanceof TFile
 				) {
-					handleFileOpen(leaf.view.file);
+					handleFileOpen(leaf.view.file, this);
 				} else {
 					return;
 				}
 			}),
 		);
 	}
+
+	private async saveStatsDataToJSON() {
+		const t0 = performance.now();
+		const fileStats = await db.fileStats.toArray();
+		const dailyActivity = await db.dailyActivity.toArray();
+
+		this.data.stats = {
+			fileStats: fileStats,
+			dailyActivity: dailyActivity,
+		};
+
+		await this.saveData(this.data);
+		const t1 = performance.now();
+		console.info(
+			`%cKEEP THE RHYTHM%c Data saved in JSON in ${Math.round(t1 - t0)} milliseconds.`,
+			"font-weight: bold; color: purple;",
+			"font-weight: normal",
+		);
+	}
+
+	private applyColorStyles() {
+		const containerStyle = this.app.workspace.containerEl.style;
+		let light = undefined;
+		let dark = undefined;
+
+		if (this.data.settings.colors) {
+			light = this.data.settings.colors?.light;
+			dark = this.data.settings.colors?.dark;
+		}
+
+		if (light && dark) {
+			for (let i = 0; i <= 4; i++) {
+				const key = i as keyof ColorConfig;
+				containerStyle.setProperty(`--light-${i}`, light[key]);
+				containerStyle.setProperty(`--dark-${i}`, dark[key]);
+			}
+		}
+	}
 }
+
+// import { db } from "@/db";
+// import { v4 as uuidv4 } from "uuid";
+// import {
+// 	createRegex,
+// 	getWordCount,
+// 	getExternalWordCount,
+// } from "@/wordCounting";
+// import { WordCountView, VIEW_TYPE } from "./src/views/WordCountView";
+// import { createRoot } from "react-dom/client";
+// import React from "react";
+// import { Heatmap } from "@/components/Heatmap";
+// import { handleFileOpen } from "@/events/fileOpen";
+// import { SettingsTab } from "./src/views/SettingsTab";
+// import {
+// 	getCurrentDate,
+// 	parsePathFilters,
+// 	parseToggles,
+// 	formatDate,
+// 	getFileNameWithoutExtension,
+// } from "@/utils";
+// import { db } from "@/db";
+// import { Vault } from "obsidian";
 
 // export default class WordCountPlugin extends Plugin {
 // 	private readonly LOCAL_BACKUP_PREFIX = "ktr-backup";

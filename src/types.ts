@@ -29,18 +29,47 @@ export interface ThemeColors {
 	dark: ColorConfig;
 }
 
+export enum Unit {
+	CHAR = "CHAR",
+	WORD = "WORD",
+}
+
+export enum SlotOption {
+	THIS_DAY = "THIS_DAY",
+	THIS_WEEK = "THIS_WEEK",
+	THIS_MONTH = "THIS_MONTH",
+	THIS_YEAR = "THIS_YEAR",
+	LAST_DAY = "LAST_DAY",
+	LAST_WEEK = "LAST_WEEK",
+	LAST_MONTH = "LAST_MONTH",
+	LAST_YEAR = "LAST_YEAR",
+}
+
+// export type SlotUnit = "CHAR" | "WORD";
+// export type SlotCalc = "TOTAL" | "AVG";
+
 export interface Settings {
 	enabledLanguages: Language[];
 	intensityStops: IntensityConfig;
-	sidePanelConfig: {
-		showOverview: boolean;
-		showHeatmap: boolean;
-		showEntries: boolean;
+	sidebarConfig: {
+		visibility: {
+			showOverview: boolean;
+			showHeatmap: boolean;
+			showEntries: boolean;
+		};
+		slots: SlotConfig[];
 	};
 	colors?: {
 		light: ColorConfig;
 		dark: ColorConfig;
 	};
+}
+
+export interface SlotConfig {
+	index: number;
+	option: SlotOption;
+	unit: Unit;
+	calc: "TOTAL" | "AVG";
 }
 
 export interface PluginData {
@@ -53,15 +82,37 @@ export interface PluginData {
 
 export const DEFAULT_SETTINGS: Settings = {
 	enabledLanguages: ["LATIN"],
+	sidebarConfig: {
+		visibility: {
+			showOverview: true,
+			showEntries: true,
+			showHeatmap: true,
+		},
+		slots: [
+			{
+				index: 0,
+				option: SlotOption.THIS_DAY,
+				unit: Unit.WORD,
+				calc: "TOTAL",
+			},
+			{
+				index: 1,
+				option: SlotOption.THIS_WEEK,
+				unit: Unit.WORD,
+				calc: "TOTAL",
+			},
+			{
+				index: 2,
+				option: SlotOption.LAST_MONTH,
+				unit: Unit.WORD,
+				calc: "AVG",
+			},
+		],
+	},
 	intensityStops: {
 		low: 100,
 		medium: 500,
 		high: 1000,
-	},
-	sidePanelConfig: {
-		showOverview: true,
-		showEntries: true,
-		showHeatmap: true,
 	},
 	colors: {
 		light: {

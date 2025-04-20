@@ -1,22 +1,35 @@
+import { getLeafWithFile } from "../utils";
+// import { useModifierKeyPressed } from "@/useModiferKey";
+import { getApp } from "../utils";
+import { getCorePluginSettings } from "@/windowUtility";
+import { App } from "obsidian";
 import { db, type DailyActivity } from "@/db";
 import React from "react";
+import { moment as _moment } from "obsidian";
+const moment = _moment as unknown as typeof _moment.default;
 import KeepTheRhythm from "../../main";
 import { formatDate } from "../utils";
 import { IntensityConfig } from "../types";
+import * as obsidian from "obsidian";
 import { weeksToShow, weekdaysNames, monthNames } from "../utils";
-
+import { Tooltip } from "@/components/Tooltip";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
+import {
+	appHasDailyNotesPluginLoaded,
+	getAllDailyNotes,
+	getDailyNoteSettings,
+} from "obsidian-daily-notes-interface";
+import { create } from "domain";
+import { Vault } from "lucide-react";
+import { useCtrlKey } from "@/useModiferKey";
 interface HeatmapProps {
-	// data: DailyActivity[];
 	intensityLevels: IntensityConfig;
-	// showOverview?: boolean;
-	// showHeatmap?: boolean;
-	// showEntries?: boolean;
-	// plugin: KeepTheRhythm;
 }
 
 interface HeatmapCellProps {
-	// count: number;
 	intensity: number;
+	count: number;
+	date: string;
 }
 
 const getIntensityLevel = (
@@ -31,9 +44,68 @@ const getIntensityLevel = (
 	return 4;
 };
 
-// INDIVIDUAL CELL
-export const HeatmapCell = ({ intensity }: HeatmapCellProps) => {
-	return <div className={`heatmap-square level-${intensity}`}></div>;
+export const HeatmapCell = ({ intensity, count, date }: HeatmapCellProps) => {
+	const isModifierHeld = useCtrlKey();
+
+	const handleClick = async (event: React.MouseEvent<HTMLDivElement>) => {
+		if (!isModifierHeld) return;
+
+		const app = getApp();
+		const dailyNotesSettings = getCorePluginSettings("daily-notes");
+		let notePath = "";
+
+		if (dailyNotesSettings?.folder) {
+			notePath += dailyNotesSettings.folder.endsWith("/")
+				? dailyNotesSettings.folder
+				: dailyNotesSettings.folder + "/";
+		}
+
+		if (dailyNotesSettings?.format) {
+			notePath += moment(date, "YYYY-MM-DD").format(
+				dailyNotesSettings.format,
+			);
+		} else {
+			notePath += date;
+		}
+
+		notePath += ".md";
+
+		const existingFile = app.vault.getAbstractFileByPath(notePath);
+
+		if (existingFile instanceof obsidian.TFile) {
+			const existingLeaf = getLeafWithFile(app, existingFile);
+			if (existingLeaf) {
+				app.workspace.setActiveLeaf(existingLeaf);
+			} else {
+				app.workspace.getLeaf(true).openFile(existingFile);
+			}
+		} else {
+			const newFile = await app.vault.create(notePath, "");
+			await app.workspace.getLeaf(true).openFile(newFile);
+		}
+	};
+
+	const intensityClass = "level-" + intensity + " ";
+	const isTodayClass =
+		date == formatDate(new Date()) ? "heatmap-square-today" : "";
+	var classes = "heatmap-square " + intensityClass + isTodayClass;
+
+	return (
+		<Tooltip
+			content={
+				<>
+					<strong>{date}</strong>
+					<div>{count.toLocaleString()} words</div>
+				</>
+			}
+		>
+			<div
+				onClick={handleClick}
+				className={classes}
+				style={{ cursor: isModifierHeld ? "pointer" : "default" }}
+			></div>
+		</Tooltip>
+	);
 };
 
 // HEATMAP
@@ -113,55 +185,64 @@ export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
 	};
 
 	return (
-		<div className="heatmap-wrapper">
-			<div className="week-day-labels">
-				{weekdaysNames.map((day) => (
-					<div key={day} className="week-day-label">
-						{day}
-					</div>
-				))}
-			</div>
-
-			<div className="heatmap-content">
-				<div className="month-labels">
-					{getMonthLabels().map(({ month, week }) => (
-						<div
-							key={`${month}-${week}`}
-							className="month-label"
-							style={{ gridColumn: week + 1 }}
-						>
-							{month}
+		<RadixTooltip.Provider
+			delayDuration={0}
+			skipDelayDuration={1000}
+			disableHoverableContent
+		>
+			<div className="heatmap-wrapper">
+				<div className="week-day-labels">
+					{weekdaysNames.map((day) => (
+						<div key={day} className="week-day-label">
+							{day}
 						</div>
 					))}
 				</div>
-				<div className="heatmap-new-grid">
-					{Array(weeksToShow)
-						.fill(null)
-						.map((_, weekIndex) => (
-							<div key={weekIndex} className="heatmap-column">
-								{Array(7)
-									.fill(null)
-									.map((_, dayIndex) => {
-										const date = getDateForCell(
-											weekIndex,
-											dayIndex,
-										);
-										const dateStr = formatDate(date);
-										const count = heatmapData[dateStr] ?? 0;
-										return (
-											<HeatmapCell
-												intensity={getIntensityLevel(
-													count,
-													intensityLevels,
-												)}
-											/>
-										);
-									})}
+
+				<div className="heatmap-content">
+					<div className="month-labels">
+						{getMonthLabels().map(({ month, week }) => (
+							<div
+								key={`${month}-${week}`}
+								className="month-label"
+								style={{ gridColumn: week + 1 }}
+							>
+								{month}
 							</div>
 						))}
+					</div>
+					<div className="heatmap-new-grid">
+						{Array(weeksToShow)
+							.fill(null)
+							.map((_, weekIndex) => (
+								<div key={weekIndex} className="heatmap-column">
+									{Array(7)
+										.fill(null)
+										.map((_, dayIndex) => {
+											const date = getDateForCell(
+												weekIndex,
+												dayIndex,
+											);
+											const dateStr = formatDate(date);
+											const count =
+												heatmapData[dateStr] ?? 0;
+											return (
+												<HeatmapCell
+													count={count}
+													date={dateStr}
+													intensity={getIntensityLevel(
+														count,
+														intensityLevels,
+													)}
+												/>
+											);
+										})}
+								</div>
+							))}
+					</div>
 				</div>
 			</div>
-		</div>
+		</RadixTooltip.Provider>
 	);
 };
 

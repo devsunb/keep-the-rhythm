@@ -6,6 +6,7 @@ import { Heatmap, HeatmapCell } from "@/components/Heatmap";
 import { IntensityConfig } from "src/types";
 import { formatDate } from "@/utils";
 import { TrainFrontTunnelIcon } from "lucide-react";
+import { KTRView } from "../components/DataView";
 
 export const VIEW_TYPE = "keep-the-rhythm";
 
@@ -36,19 +37,9 @@ export class PluginCoreUI extends ItemView {
 		container.empty();
 		const reactContainer = container.createEl("div");
 		this.root = createRoot(reactContainer);
+
 		this.root.render(
-			React.createElement(HeatmapCell, {
-				date: formatDate(new Date()),
-				count: 100,
-				intensityLevels: this.plugin.data.settings.intensityStops,
-			}),
-		);
-		this.root.render(
-			React.createElement(Heatmap, {
-				data: this.plugin.data,
-				intensityLevels: this.plugin.data.settings.intensityStops,
-				showOverview: true,
-				showEntries: true,
+			React.createElement(KTRView, {
 				plugin: this.plugin,
 			}),
 		);
