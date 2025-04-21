@@ -1,5 +1,5 @@
 import { Language } from "./types";
-import type WordCountPlugin from "main";
+import type WordCountPlugin from "./main";
 
 export function getExternalWordCount(
 	text: string,

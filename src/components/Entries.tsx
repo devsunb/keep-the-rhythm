@@ -1,8 +1,8 @@
 import { formatDate, mockMonthDailyActivity } from "@/utils";
-import { DailyActivity } from "@/db";
+import { DailyActivity } from "@/db/db";
 import React, { useEffect, useState } from "react";
 import { eventEmitter, EVENTS } from "@/events";
-import { getActivityByDate } from "@/db";
+import { getActivityByDate } from "@/db/db";
 
 // import type { PluginData } from "../types";
 // import KeepTheRhythm from "../../main";

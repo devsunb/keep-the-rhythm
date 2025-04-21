@@ -1,4 +1,4 @@
-import { useAltKey } from "@/useModiferKey";
+import { useAltKey } from "../context/useModiferKey";
 import React from "react";
 import { formatDate } from "../utils";
 import { SlotConfig } from "@/types";

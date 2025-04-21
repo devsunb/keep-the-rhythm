@@ -1,6 +1,6 @@
-import { DailyActivity } from "./db";
+import { DailyActivity } from "./db/db";
 import { App } from "obsidian";
-import { db } from "./db";
+import { db } from "./db/db";
 import { IntensityConfig } from "./types";
 import KeepTheRhythm from "main";
 import { TFile } from "obsidian";

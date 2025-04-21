@@ -1,7 +1,7 @@
-import { KeyProvider } from "@/useModiferKey";
+import { KeyProvider } from "../context/useModiferKey";
 import React from "react";
 import type { PluginData } from "../types";
-import KeepTheRhythm from "../../main";
+import KeepTheRhythm from "../main";
 import { Heatmap } from "./Heatmap";
 import { SlotWrapper } from "./SlotWrapper";
 import { Entries } from "./Entries";

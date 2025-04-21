@@ -6,14 +6,14 @@ import {
 	getLeafWithFile,
 	getApp,
 } from "../utils";
-import { db } from "@/db";
+import { db } from "@/db/db";
 import React from "react";
 import { IntensityConfig } from "../types";
 import * as obsidian from "obsidian";
 import { Tooltip } from "@/components/Tooltip";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { useCtrlKey } from "@/useModiferKey";
-import { getCorePluginSettings } from "@/windowUtility";
+import { useCtrlKey } from "../context/useModiferKey";
+import { getCorePluginSettings } from "../utils/windowUtility";
 
 import { moment as _moment } from "obsidian";
 
@@ -225,6 +225,7 @@ export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
 												heatmapData[dateStr] ?? 0;
 											return (
 												<HeatmapCell
+													key={dateStr}
 													count={count}
 													date={dateStr}
 													intensity={getIntensityLevel(

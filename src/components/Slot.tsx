@@ -8,7 +8,7 @@ import {
 	getActivityByDate,
 	getTotalValueByDate,
 	getTotalValueInDateRange,
-} from "../db";
+} from "../db/db";
 import {
 	formatDate,
 	log,
@@ -29,6 +29,8 @@ export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
 
 	const callOptionFetch = (option: SlotOption) => {
 		switch (option) {
+			case SlotOption.CURRENT_FILE:
+				console.log("this file");
 			case SlotOption.THIS_DAY:
 				getTotalValueByDate(todayStr, unit).then((newVal) => {
 					setValue(newVal);

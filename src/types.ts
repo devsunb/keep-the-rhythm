@@ -35,6 +35,7 @@ export enum Unit {
 }
 
 export enum SlotOption {
+	CURRENT_FILE = "CURRENT_FILE",
 	THIS_DAY = "THIS_DAY",
 	THIS_WEEK = "THIS_WEEK",
 	THIS_MONTH = "THIS_MONTH",

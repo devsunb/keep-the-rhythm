@@ -1,5 +1,5 @@
 import Dexie from "dexie";
-import { Unit } from "./types";
+import { Unit } from "../types";
 import { start } from "repl";
 
 export interface FileStats {
@@ -91,4 +91,56 @@ export async function getTotalValueInDateRange(
 		);
 	}
 	return value;
+}
+
+export async function removeDuplicatedDailyEntries() {
+	// Get all daily activity entries
+	const allEntries = await db.dailyActivity.toArray();
+
+	// Create a map to track unique entries by date+filePath
+	const uniqueEntries = new Map();
+	const duplicateIds = [];
+
+	// Find duplicates
+	for (const entry of allEntries) {
+		const key = `${entry.date}-${entry.filePath}`;
+
+		if (!uniqueEntries.has(key)) {
+			// First occurrence of this date+filePath combination
+			uniqueEntries.set(key, entry);
+		} else {
+			// This is a duplicate - merge data into the first entry
+			const existingEntry = uniqueEntries.get(key);
+
+			// Update counts in the first entry (optional - decide if you want to sum or keep max values)
+			existingEntry.wordsWritten += entry.wordsWritten;
+			existingEntry.charsWritten += entry.charsWritten;
+
+			// Add this duplicate's ID to the list for deletion
+			if (entry.id !== undefined) {
+				duplicateIds.push(entry.id);
+			}
+		}
+	}
+
+	// Update all the merged entries
+	for (const entry of uniqueEntries.values()) {
+		if (entry.id !== undefined) {
+			await db.dailyActivity.update(entry.id, {
+				wordsWritten: entry.wordsWritten,
+				charsWritten: entry.charsWritten,
+			});
+		}
+	}
+
+	// Delete all duplicates
+	if (duplicateIds.length > 0) {
+		await db.dailyActivity.bulkDelete(duplicateIds);
+	}
+
+	return {
+		totalEntries: allEntries.length,
+		uniqueEntries: uniqueEntries.size,
+		duplicatesRemoved: duplicateIds.length,
+	};
 }

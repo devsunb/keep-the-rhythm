@@ -1,11 +1,8 @@
-import { getFileContent } from "./utils";
 import { TFile, Editor } from "obsidian";
-import { off } from "process";
-import { DailyActivity, db } from "./db";
-import KeepTheRhythm from "main";
+import { DailyActivity, db } from "./db/db";
+import KeepTheRhythm from "./main";
 import { getExternalWordCount, getWordCount } from "@/wordCounting";
-import { formatDate } from "./utils";
-import { log } from "./utils";
+import { formatDate, log, getFileContent } from "./utils";
 
 export async function handleEditorPaste(
 	clip: ClipboardEvent,
@@ -30,22 +27,22 @@ async function updateDatabase(path: string, deltaWords: number) {
 			}
 		});
 
-	// const dailyEntry = await db.dailyActivity
-	// 	.where("[date+filePath]")
-	// 	.equals([today, path])
-	// 	.first();
+	const dailyEntry = await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([today, path])
+		.first();
 
-	// if (dailyEntry) {
-	// 	await db.dailyActivity.update(dailyEntry, {
-	// 		wordsWritten: dailyEntry?.wordsWritten + deltaWords,
-	// 	});
+	if (dailyEntry) {
+		await db.dailyActivity.update(dailyEntry, {
+			wordsWritten: dailyEntry?.wordsWritten + deltaWords,
+		});
 
-	// 	// await db.dailyActivity.get(dailyEntry.id!).then((item) => {
-	// 	// 	console.log(item?.wordsWritten);
-	// 	// });
-	// }
+		// await db.dailyActivity.get(dailyEntry.id!).then((item) => {
+		// 	console.log(item?.wordsWritten);
+		// });
+	}
 
-	// eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
+	eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
 	const end = performance.now();
 	console.log(end - start);
 }

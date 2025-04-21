@@ -1,4 +1,4 @@
-import { db, FileStats } from "./db";
+import { db, FileStats } from "./db/db";
 import { Vault } from "obsidian";
 import { getExternalWordCount } from "./wordCounting";
 import { Language } from "./types";

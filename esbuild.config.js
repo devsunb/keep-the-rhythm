@@ -14,7 +14,9 @@ const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
-	entryPoints: ["main.ts", "styles.scss"],
+	entryPoints: ["src/main.ts", "src/styles/styles.scss"],
+	entryNames: "[name]",
+	outdir: ".",
 	bundle: true,
 	external: [
 		"obsidian",
@@ -40,7 +42,7 @@ const context = await esbuild.context({
 	define: {
 		"process.env.NODE_ENV": prod ? '"production"' : '"development"',
 	},
-	outdir: ".",
+
 	minify: prod,
 	minifyWhitespace: prod,
 	minifyIdentifiers: prod,

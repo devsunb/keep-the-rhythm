@@ -1,11 +1,7 @@
 import { mockMonthDailyActivity } from "@/utils";
 import { v4 as uuidv4 } from "uuid";
 import { formatDate, setApp } from "@/utils";
-import { getCorePluginSettings } from "@/windowUtility";
-import { PluginCoreUI, VIEW_TYPE } from "@/views/CoreUI";
-// import { migrateFromJSON } from "@/migrateData";
-import previousData from "./previous-data.json";
-import { randomUUID } from "crypto";
+import { PluginView, VIEW_TYPE } from "@/views/PluginView";
 import { Plugin, TFile, TAbstractFile, MarkdownView } from "obsidian";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "src/types";
 import {
@@ -20,16 +16,19 @@ import {
 	EVENTS,
 } from "@/events";
 import { initializeFileStats } from "@/initializeFileStats";
-import { db, getActivityByDate, DailyActivity } from "@/db";
+import { db, removeDuplicatedDailyEntries } from "@/db/db";
 import { log } from "@/utils";
 
 export default class KeepTheRhythm extends Plugin {
 	regex: RegExp;
 	data: PluginData;
 	deviceId: string;
-	view: PluginCoreUI | null;
+	view: PluginView | null;
 
 	async onload() {
+		console.log("PLUGIN LOADED");
+		console.log("PLUGIN LOADED");
+		console.log("PLUGIN LOADED");
 		setApp(this.app);
 		const loadedData = await this.loadData();
 		if (!loadedData) {
@@ -83,7 +82,7 @@ export default class KeepTheRhythm extends Plugin {
 
 	private initializeViews() {
 		this.registerView(VIEW_TYPE, (leaf) => {
-			this.view = new PluginCoreUI(leaf, this);
+			this.view = new PluginView(leaf, this);
 			return this.view;
 		});
 	}
@@ -94,6 +93,14 @@ export default class KeepTheRhythm extends Plugin {
 			name: "Open tracking heatmap",
 			callback: () => {
 				this.activateView();
+			},
+		});
+
+		this.addCommand({
+			id: "open-keep-the-rhythm",
+			name: "Remove duplicated entries",
+			callback: () => {
+				removeDuplicatedDailyEntries();
 			},
 		});
 
@@ -121,6 +128,7 @@ export default class KeepTheRhythm extends Plugin {
 			callback: () => {
 				this.data.settings = DEFAULT_SETTINGS;
 				this.saveData(this.data);
+				console.log(this.data.settings.sidebarConfig.slots);
 				log("settings reseted");
 			},
 		});
