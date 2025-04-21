@@ -37,8 +37,14 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
+	define: {
+		"process.env.NODE_ENV": prod ? '"production"' : '"development"',
+	},
 	outdir: ".",
 	minify: prod,
+	minifyWhitespace: prod,
+	minifyIdentifiers: prod,
+	minifySyntax: prod,
 	plugins: [
 		sassPlugin({
 			type: "css",

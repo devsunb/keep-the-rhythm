@@ -5,7 +5,6 @@ import { createRoot, Root } from "react-dom/client";
 import { Heatmap, HeatmapCell } from "@/components/Heatmap";
 import { IntensityConfig } from "src/types";
 import { formatDate } from "@/utils";
-import { TrainFrontTunnelIcon } from "lucide-react";
 import { KTRView } from "../components/DataView";
 
 export const VIEW_TYPE = "keep-the-rhythm";
@@ -32,7 +31,6 @@ export class PluginCoreUI extends ItemView {
 	}
 
 	async onOpen() {
-		console.log("KTR view openened");
 		const container = this.containerEl.children[1];
 		container.empty();
 		const reactContainer = container.createEl("div");
@@ -57,7 +55,6 @@ export class PluginCoreUI extends ItemView {
 	}
 
 	async onClose() {
-		console.log("KTR view closed");
 		if (this.root) {
 			this.root.unmount();
 			this.root = null;

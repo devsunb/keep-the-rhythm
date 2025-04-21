@@ -1,27 +1,24 @@
-import { getLeafWithFile } from "../utils";
-// import { useModifierKeyPressed } from "@/useModiferKey";
-import { getApp } from "../utils";
-import { getCorePluginSettings } from "@/windowUtility";
-import { App } from "obsidian";
-import { db, type DailyActivity } from "@/db";
+import {
+	weeksToShow,
+	weekdaysNames,
+	monthNames,
+	formatDate,
+	getLeafWithFile,
+	getApp,
+} from "../utils";
+import { db } from "@/db";
 import React from "react";
-import { moment as _moment } from "obsidian";
-const moment = _moment as unknown as typeof _moment.default;
-import KeepTheRhythm from "../../main";
-import { formatDate } from "../utils";
 import { IntensityConfig } from "../types";
 import * as obsidian from "obsidian";
-import { weeksToShow, weekdaysNames, monthNames } from "../utils";
 import { Tooltip } from "@/components/Tooltip";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import {
-	appHasDailyNotesPluginLoaded,
-	getAllDailyNotes,
-	getDailyNoteSettings,
-} from "obsidian-daily-notes-interface";
-import { create } from "domain";
-import { Vault } from "lucide-react";
 import { useCtrlKey } from "@/useModiferKey";
+import { getCorePluginSettings } from "@/windowUtility";
+
+import { moment as _moment } from "obsidian";
+
+const moment = _moment as unknown as typeof _moment.default;
+
 interface HeatmapProps {
 	intensityLevels: IntensityConfig;
 }
@@ -245,25 +242,3 @@ export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
 		</RadixTooltip.Provider>
 	);
 };
-
-// const getTodayFiles = async () => {
-// 	const today = formatDate(new Date());
-// 	const todayData = await db.dailyActivity
-// 		.where("date")
-// 		.equals(today)
-// 		.toArray();
-
-// 	// return Object.entries(todayData)
-// 	// 	.filter(
-// 	// 		([_, wordCount]) => wordCount.current - wordCount.initial !== 0,
-// 	// 	)
-// 	// 	.map(([filePath, wordCount]) => ({
-// 	// 		path: filePath,
-// 	// 		wordCount,
-// 	// 		delta: wordCount.current - wordCount.initial,
-// 	// 	}));
-// };
-
-// const getDayData = async (day: string) => {
-// 	db.dailyActivity.where("date").equals(day);
-// };

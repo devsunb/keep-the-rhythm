@@ -52,6 +52,8 @@ export async function getTotalValueByDate(date: string, unit: Unit) {
 		.equals(date)
 		.toArray();
 
+	// console.log(activities);
+
 	let value = 0;
 	if (unit == Unit.WORD) {
 		value = activities.reduce(
@@ -73,7 +75,7 @@ export async function getTotalValueInDateRange(
 ) {
 	const activities = await db.dailyActivity
 		.where("date")
-		.between(startDate, endDate)
+		.between(startDate, endDate, true, true)
 		.toArray();
 
 	let value = 0;

@@ -23,7 +23,9 @@
 	},
 	"include": [
 		"**/*.ts",
+		"*.d.ts",
 		"src/components/Heatmap.tsx",
-		"./node_modules/obsidian/**/*.d.ts"
+		"./node_modules/obsidia/n**/*.d.ts",
+		"src/numberFlowWrap.tsx"
 	]
 }

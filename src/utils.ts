@@ -1,6 +1,5 @@
+import { DailyActivity } from "./db";
 import { App } from "obsidian";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { db } from "./db";
 import { IntensityConfig } from "./types";
 import KeepTheRhythm from "main";
@@ -28,10 +27,6 @@ export function getLeafWithFile(app: App, file: TFile): WorkspaceLeaf | null {
 async function resetDatabase() {
 	await db.delete();
 	location.reload(); // Force page reload to reinitialize DB
-}
-
-export function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs));
 }
 
 // export function getCurrentDate(): string {
@@ -177,4 +172,29 @@ export function setApp(app: App) {
 export function getApp(): App {
 	if (!appInstance) throw new Error("App not initialized");
 	return appInstance;
+}
+
+export async function mockMonthDailyActivity() {
+	const today = new Date();
+	const activities: DailyActivity[] = [];
+
+	for (let i = 0; i < 30; i++) {
+		const day = new Date(today);
+		day.setDate(today.getDate() - i);
+
+		const dateStr = day.toISOString().split("T")[0]; // YYYY-MM-DD
+
+		activities.push({
+			date: dateStr,
+			device: "Laptop",
+			filePath: `/mock/path/file-${i}.md`,
+			wordsWritten: Math.floor(Math.random() * 500 + 100),
+			charsWritten: Math.floor(Math.random() * 2000 + 500),
+			created: false,
+			wordCountStart: 0,
+			charCountStart: 0,
+		});
+	}
+
+	await db.dailyActivity.bulkAdd(activities);
 }

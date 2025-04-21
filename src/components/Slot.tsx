@@ -1,3 +1,4 @@
+// import NumberFlow from "@number-flow/react";
 import { SlotOption } from "../types";
 import React from "react";
 import { getSlotLabel } from "@/texts";
@@ -34,6 +35,7 @@ export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
 				});
 				break;
 			case SlotOption.THIS_WEEK:
+				// console.log(todayStr);
 				const thisWeekStart = formatDate(getStartOfWeek(new Date()));
 				getTotalValueInDateRange(thisWeekStart, todayStr, unit).then(
 					(total) => {
@@ -81,6 +83,9 @@ export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
 		setIsLoading(false);
 	};
 
+	// useEffect(() => {
+	// 	initializeNumberFlow();
+	// }, []);
 	useEffect(() => {
 		handleRefresh();
 
@@ -101,7 +106,12 @@ export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
 				{getSlotLabel(option)}
 			</span>
 			<div className="slot__info">
+				{/* <NumberFlow value={value}></NumberFlow> */}
+
+				{/* <number-flow-react value={value}></number-flow-react> */}
+				{/* <NumberFlowComponent value={value}></NumberFlowComponent> */}
 				<div className="slot__value">{value.toLocaleString()}</div>
+				{/* <SafeNumberFlowRenderer value={value} /> */}
 				<div className="slot__unit">{unit.toLowerCase() + "s"}</div>
 			</div>
 		</div>

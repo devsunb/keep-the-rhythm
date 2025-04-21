@@ -5,7 +5,7 @@ import KeepTheRhythm from "../../main";
 import { Heatmap } from "./Heatmap";
 import { SlotWrapper } from "./SlotWrapper";
 import { Entries } from "./Entries";
-import plugin from "tailwindcss-animate";
+import { CustomChart } from "./Chart";
 
 interface KTRView {
 	data?: PluginData;
@@ -22,20 +22,21 @@ export const KTRView = ({ plugin }: KTRView) => {
 		<div>
 			<KeyProvider>
 				<SlotWrapper slots={slots} />
+				<CustomChart intensityLevels={[0, 1, 3, 4, 5]}></CustomChart>
 				{
 					<Heatmap
 						intensityLevels={plugin.data.settings.intensityStops}
 					/>
 				}
-				<h3>ENTRIES</h3>
+				<Entries />
+				{/* <h3>ENTRIES</h3>
 				<li>item</li>
 				<li>item</li>
 				<li>item</li>
-				{/* <Entries /> */}
 				<h3>SHORCUTS</h3>
 				<div>{"CTRL on heatmap -> link"}</div>
 				<div>ALT to hide sections</div>
-				<div>ACTIONS?</div>
+				<div>ACTIONS?</div> */}
 			</KeyProvider>
 		</div>
 	);

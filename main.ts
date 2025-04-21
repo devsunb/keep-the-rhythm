@@ -1,56 +1,27 @@
+import { mockMonthDailyActivity } from "@/utils";
+import { v4 as uuidv4 } from "uuid";
+import { formatDate, setApp } from "@/utils";
 import { getCorePluginSettings } from "@/windowUtility";
-import { setApp } from "@/utils";
-import { formatDate } from "@/utils";
 import { PluginCoreUI, VIEW_TYPE } from "@/views/CoreUI";
-import { migrateFromJSON } from "@/migrateData";
+// import { migrateFromJSON } from "@/migrateData";
 import previousData from "./previous-data.json";
-// import { periodicNotes } from "@/windowUtility";
-import {
-	getDailyNote,
-	appHasDailyNotesPluginLoaded,
-	getAllDailyNotes,
-} from "obsidian-daily-notes-interface";
 import { randomUUID } from "crypto";
 import { Plugin, TFile, TAbstractFile, MarkdownView } from "obsidian";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "src/types";
 import {
 	handleFileCreate,
 	handleFileDelete,
+	handleEditorChange,
 	handleFileModify,
 	handleFileRename,
 	handleFileOpen,
+	handleEditorPaste,
 	eventEmitter,
 	EVENTS,
 } from "@/events";
 import { initializeFileStats } from "@/initializeFileStats";
 import { db, getActivityByDate, DailyActivity } from "@/db";
-import { Settings } from "http2";
-import { DBCoreRangeType } from "dexie";
 import { log } from "@/utils";
-
-// export async function mockWeeklyDailyActivity() {
-// 	const today = new Date();
-// 	const activities: DailyActivity[] = [];
-
-// 	for (let i = 0; i < 7; i++) {
-// 		const day = new Date(today);
-// 		day.setDate(today.getDate() - i);
-
-// 		const dateStr = day.toISOString().split("T")[0]; // YYYY-MM-DD
-
-// 		activities.push({
-// 			date: dateStr,
-// 			device: "Laptop",
-// 			filePath: `/mock/path/file-${i}.md`,
-// 			wordsWritten: Math.floor(Math.random() * 500 + 100),
-// 			charsWritten: Math.floor(Math.random() * 2000 + 500),
-// 			created: i % 2 === 0, // Alternate between true/false
-// 		});
-// 	}
-
-// 	await db.dailyActivity.bulkAdd(activities);
-// 	console.log("Mocked weekly activity added!");
-// }
 
 export default class KeepTheRhythm extends Plugin {
 	regex: RegExp;
@@ -60,7 +31,6 @@ export default class KeepTheRhythm extends Plugin {
 
 	async onload() {
 		setApp(this.app);
-
 		const loadedData = await this.loadData();
 		if (!loadedData) {
 			this.data = { settings: DEFAULT_SETTINGS };
@@ -68,8 +38,6 @@ export default class KeepTheRhythm extends Plugin {
 		} else {
 			this.data = loadedData;
 		}
-
-		// console.log(moment);
 
 		await initializeFileStats(
 			this.app.vault,
@@ -85,15 +53,16 @@ export default class KeepTheRhythm extends Plugin {
 		this.initializeEvents();
 		this.applyColorStyles();
 
-		setInterval(() => {
-			eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
-		}, 5000);
+		// setInterval(() => {
+		// 	eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
+		// }, 5000);
 	}
 
 	private setDeviceId() {
 		let id = localStorage.getItem("ktr-device-id");
 		if (!id) {
-			id = randomUUID();
+			// id = randomUUID() as string;
+			id = uuidv4();
 			localStorage.setItem("ktr-device-id", id);
 		}
 		this.deviceId = id;
@@ -129,6 +98,24 @@ export default class KeepTheRhythm extends Plugin {
 		});
 
 		this.addCommand({
+			id: "mock-data",
+			name: "Mock data for last month",
+			callback: () => {
+				mockMonthDailyActivity();
+			},
+		});
+
+		this.addCommand({
+			id: "delete-db",
+			name: "Delete database",
+			callback: () => {
+				db.dailyActivity.clear();
+				db.fileStats.clear();
+				// emit refresh
+			},
+		});
+
+		this.addCommand({
 			id: "reset-keep-the-rhythm",
 			name: "Reset Settings",
 			callback: () => {
@@ -144,6 +131,23 @@ export default class KeepTheRhythm extends Plugin {
 				if (file instanceof TFile) handleFileModify(file, this);
 			}),
 		);
+		// this.registerEvent(
+		// 	this.app.workspace.on("editor-change", (file: TAbstractFile) => {
+		// 		if (file instanceof TFile) handleEditorChange(file, this);
+		// 	}),
+		// );
+		this.registerEvent(
+			this.app.workspace.on("editor-change", (editor, info) => {
+				handleEditorChange(editor, info, this);
+			}),
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("editor-paste", (clip, editor, info) => {
+				handleEditorPaste(clip, editor, info, this);
+			}),
+		);
+
 		this.registerEvent(
 			this.app.vault.on("delete", (file: TAbstractFile) => {
 				if (file instanceof TFile) handleFileDelete(file);
@@ -185,11 +189,11 @@ export default class KeepTheRhythm extends Plugin {
 
 		await this.saveData(this.data);
 		const t1 = performance.now();
-		console.info(
-			`%cKEEP THE RHYTHM%c Data saved in JSON in ${Math.round(t1 - t0)} milliseconds.`,
-			"font-weight: bold; color: purple;",
-			"font-weight: normal",
-		);
+		// console.info(
+		// 	`%cKEEP THE RHYTHM%c Data saved in JSON in ${Math.round(t1 - t0)} milliseconds.`,
+		// 	"font-weight: bold; color: purple;",
+		// 	"font-weight: normal",
+		// );
 	}
 
 	private applyColorStyles() {
