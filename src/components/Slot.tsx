@@ -1,3 +1,5 @@
+import { useEditorStore } from "../context/editorContext";
+
 // import NumberFlow from "@number-flow/react";
 import { SlotOption } from "../types";
 import React from "react";
@@ -22,6 +24,7 @@ import { SlotConfig } from "../types";
 import { eventEmitter, EVENTS } from "@/events";
 
 export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
+	const store = useEditorStore();
 	const [value, setValue] = useState<number>(0);
 	const [isLoading, setIsLoading] = useState(true);
 
@@ -30,7 +33,9 @@ export const Slot = ({ index, option, unit, calc }: SlotConfig) => {
 	const callOptionFetch = (option: SlotOption) => {
 		switch (option) {
 			case SlotOption.CURRENT_FILE:
-				console.log("this file");
+				// console.log(store.lastProcessedWordCount);
+				setValue(store.lastProcessedWordCount);
+				break;
 			case SlotOption.THIS_DAY:
 				getTotalValueByDate(todayStr, unit).then((newVal) => {
 					setValue(newVal);

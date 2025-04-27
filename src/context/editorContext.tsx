@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { editorStore } from "../editorStore";
-import { EditorStore } from "../editorStore";
+import { editorStore, EditorStore } from "../store/editorStore";
 
 // Create context with the same shape as the store
 const EditorContext = createContext<EditorStore | undefined>(undefined);

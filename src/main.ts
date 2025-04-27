@@ -1,3 +1,7 @@
+import {
+	historicDataCache,
+	HistoricDataCache,
+} from "./store/historicDataCache";
 import { mockMonthDailyActivity } from "@/utils";
 import { v4 as uuidv4 } from "uuid";
 import { formatDate, setApp } from "@/utils";
@@ -18,16 +22,19 @@ import {
 import { initializeFileStats } from "@/initializeFileStats";
 import { db, removeDuplicatedDailyEntries } from "@/db/db";
 import { log } from "@/utils";
+import { FloatingUIManager } from "./components/floatingComponent";
 
 export default class KeepTheRhythm extends Plugin {
 	regex: RegExp;
 	data: PluginData;
 	deviceId: string;
 	view: PluginView | null;
+	private floatingUI: FloatingUIManager;
 
 	async onload() {
-		console.log("PLUGIN LOADED");
-		console.log("PLUGIN LOADED");
+		this.register(() => {
+			this.floatingUI.cleanup();
+		});
 		console.log("PLUGIN LOADED");
 		setApp(this.app);
 		const loadedData = await this.loadData();
@@ -47,6 +54,7 @@ export default class KeepTheRhythm extends Plugin {
 
 		this.setDeviceId();
 		this.saveStatsDataToJSON();
+		historicDataCache.resetCache();
 		this.initializeViews();
 		this.initializeCommands();
 		this.initializeEvents();
@@ -55,6 +63,22 @@ export default class KeepTheRhythm extends Plugin {
 		// setInterval(() => {
 		// 	eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
 		// }, 5000);
+		this.floatingUI = new FloatingUIManager(this.app);
+		const ribbonIconEl = this.addRibbonIcon(
+			"layout-dashboard",
+			"Toggle Floating UI",
+			() => {
+				this.floatingUI.toggle();
+			},
+		);
+
+		this.addCommand({
+			id: "toggle-floating-ui",
+			name: "Toggle Floating UI",
+			callback: () => {
+				this.floatingUI.toggle();
+			},
+		});
 	}
 
 	private setDeviceId() {
@@ -88,6 +112,10 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	private initializeCommands() {
+		this.addRibbonIcon("calendar-days", "Word Count Stats", () => {
+			this.activateView();
+		});
+
 		this.addCommand({
 			id: "open-keep-the-rhythm",
 			name: "Open tracking heatmap",

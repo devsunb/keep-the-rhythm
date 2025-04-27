@@ -1,3 +1,4 @@
+import { EditorProvider } from "../context/editorContext";
 import { KeyProvider } from "../context/useModiferKey";
 import React from "react";
 import type { PluginData } from "../types";
@@ -20,16 +21,21 @@ export const KTRView = ({ plugin }: KTRView) => {
 
 	return (
 		<div>
-			<KeyProvider>
-				<SlotWrapper slots={slots} />
-				<CustomChart intensityLevels={[0, 1, 3, 4, 5]}></CustomChart>
-				{
-					<Heatmap
-						intensityLevels={plugin.data.settings.intensityStops}
-					/>
-				}
-				<Entries />
-				{/* <h3>ENTRIES</h3>
+			<EditorProvider>
+				<KeyProvider>
+					<SlotWrapper slots={slots} />
+					<CustomChart
+						intensityLevels={[0, 1, 3, 4, 5]}
+					></CustomChart>
+					{
+						<Heatmap
+							intensityLevels={
+								plugin.data.settings.intensityStops
+							}
+						/>
+					}
+					<Entries />
+					{/* <h3>ENTRIES</h3>
 				<li>item</li>
 				<li>item</li>
 				<li>item</li>
@@ -37,7 +43,8 @@ export const KTRView = ({ plugin }: KTRView) => {
 				<div>{"CTRL on heatmap -> link"}</div>
 				<div>ALT to hide sections</div>
 				<div>ACTIONS?</div> */}
-			</KeyProvider>
+				</KeyProvider>
+			</EditorProvider>
 		</div>
 	);
 };

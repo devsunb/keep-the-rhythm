@@ -1,4 +1,10 @@
 import {
+	HistoricDataCache,
+	historicDataCache,
+} from "@/store/historicDataCache";
+import { getDateForCell, getDayIndex } from "../utils";
+import { eventEmitter, EVENTS } from "../events";
+import {
 	weeksToShow,
 	weekdaysNames,
 	monthNames,
@@ -6,27 +12,19 @@ import {
 	getLeafWithFile,
 	getApp,
 } from "../utils";
-import { db } from "@/db/db";
+import { db, getActivityByDate, getTotalValueByDate } from "@/db/db";
 import React from "react";
-import { IntensityConfig } from "../types";
+import { IntensityConfig, Unit } from "../types";
 import * as obsidian from "obsidian";
 import { Tooltip } from "@/components/Tooltip";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { useCtrlKey } from "../context/useModiferKey";
-import { getCorePluginSettings } from "../utils/windowUtility";
-
 import { moment as _moment } from "obsidian";
-
-const moment = _moment as unknown as typeof _moment.default;
+import { HeatmapCell } from "./HeatmapCell";
+import { editorStore } from "@/store/editorStore";
 
 interface HeatmapProps {
 	intensityLevels: IntensityConfig;
-}
-
-interface HeatmapCellProps {
-	intensity: number;
-	count: number;
-	date: string;
 }
 
 const getIntensityLevel = (
@@ -41,121 +39,44 @@ const getIntensityLevel = (
 	return 4;
 };
 
-export const HeatmapCell = ({ intensity, count, date }: HeatmapCellProps) => {
-	const isModifierHeld = useCtrlKey();
-
-	const handleClick = async (event: React.MouseEvent<HTMLDivElement>) => {
-		if (!isModifierHeld) return;
-
-		const app = getApp();
-		const dailyNotesSettings = getCorePluginSettings("daily-notes");
-		let notePath = "";
-
-		if (dailyNotesSettings?.folder) {
-			notePath += dailyNotesSettings.folder.endsWith("/")
-				? dailyNotesSettings.folder
-				: dailyNotesSettings.folder + "/";
-		}
-
-		if (dailyNotesSettings?.format) {
-			notePath += moment(date, "YYYY-MM-DD").format(
-				dailyNotesSettings.format,
-			);
-		} else {
-			notePath += date;
-		}
-
-		notePath += ".md";
-
-		const existingFile = app.vault.getAbstractFileByPath(notePath);
-
-		if (existingFile instanceof obsidian.TFile) {
-			const existingLeaf = getLeafWithFile(app, existingFile);
-			if (existingLeaf) {
-				app.workspace.setActiveLeaf(existingLeaf);
-			} else {
-				app.workspace.getLeaf(true).openFile(existingFile);
-			}
-		} else {
-			const newFile = await app.vault.create(notePath, "");
-			await app.workspace.getLeaf(true).openFile(newFile);
-		}
-	};
-
-	const intensityClass = "level-" + intensity + " ";
-	const isTodayClass =
-		date == formatDate(new Date()) ? "heatmap-square-today" : "";
-	var classes = "heatmap-square " + intensityClass + isTodayClass;
-
-	return (
-		<Tooltip
-			content={
-				<>
-					<strong>{date}</strong>
-					<div>{count.toLocaleString()} words</div>
-				</>
-			}
-		>
-			<div
-				onClick={handleClick}
-				className={classes}
-				style={{ cursor: isModifierHeld ? "pointer" : "default" }}
-			></div>
-		</Tooltip>
-	);
-};
-
 // HEATMAP
 export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
 	const [heatmapData, setHeatmapData] = React.useState<
 		Record<string, number>
 	>({});
 
+	const fetchHeatmapData = async () => {
+		const start = performance.now();
+		const today = formatDate(new Date());
+		let data: Record<string, number> = {};
+
+		if (historicDataCache.cacheExists) {
+			console.log("using existing data");
+			data = historicDataCache.historicalCache;
+		} else {
+			console.log("refetching data");
+			data = await historicDataCache.resetCache();
+		}
+
+		await getTotalValueByDate(today, Unit.WORD).then((todayEntry) => {
+			data[today] = todayEntry;
+		});
+
+		setHeatmapData({ ...historicDataCache.historicalCache });
+
+		const end = performance.now();
+		console.log(end - start);
+	};
+
 	React.useEffect(() => {
-		const fetchHeatmapData = async () => {
-			const requiredDates = new Set<string>();
-
-			for (let week = 0; week < weeksToShow; week++) {
-				for (let day = 0; day < 7; day++) {
-					const date = getDateForCell(week, day);
-					requiredDates.add(formatDate(date));
-				}
-			}
-
-			const results = await db.dailyActivity
-				.where("date")
-				.anyOf([...requiredDates])
-				.toArray();
-
-			const dateMap: Record<string, number> = {};
-			for (const entry of results) {
-				dateMap[entry.date] =
-					(dateMap[entry.date] || 0) + entry.wordsWritten;
-			}
-
-			setHeatmapData(dateMap);
-		};
 		fetchHeatmapData();
+		eventEmitter.on(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
+		return () => {
+			eventEmitter.off(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
+		};
 	}, []);
 
 	const today = new Date();
-
-	const getDayIndex = (dayIndex: number): number => {
-		return dayIndex === 0 ? 6 : dayIndex - 1;
-	};
-
-	const getDateForCell = (weekIndex: number, dayIndex: number): Date => {
-		const date = new Date(today);
-
-		const currentDayIndex = getDayIndex(date.getDay());
-		date.setDate(date.getDate() - currentDayIndex);
-
-		// Calculate offset from the current week's Monday
-		const weekOffset = weekIndex - (weeksToShow - 1);
-		date.setDate(date.getDate() + weekOffset * 7 + dayIndex);
-
-		return date;
-	};
 
 	const getMonthLabels = () => {
 		const labels = [];

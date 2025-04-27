@@ -2,7 +2,7 @@ import { DailyActivity } from "./db/db";
 import { App } from "obsidian";
 import { db } from "./db/db";
 import { IntensityConfig } from "./types";
-import KeepTheRhythm from "main";
+import KeepTheRhythm from "./main";
 import { TFile } from "obsidian";
 import { MarkdownView } from "obsidian";
 import { WorkspaceLeaf } from "obsidian";
@@ -198,3 +198,21 @@ export async function mockMonthDailyActivity() {
 
 	await db.dailyActivity.bulkAdd(activities);
 }
+
+export const getDateForCell = (weekIndex: number, dayIndex: number): Date => {
+	const today = new Date();
+	const date = new Date(today);
+
+	const currentDayIndex = getDayIndex(date.getDay());
+	date.setDate(date.getDate() - currentDayIndex);
+
+	// Calculate offset from the current week's Monday
+	const weekOffset = weekIndex - (weeksToShow - 1);
+	date.setDate(date.getDate() + weekOffset * 7 + dayIndex);
+
+	return date;
+};
+
+export const getDayIndex = (dayIndex: number): number => {
+	return dayIndex === 0 ? 6 : dayIndex - 1;
+};

@@ -1,8 +1,7 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
-import KeepTheRhythm from "../../main";
+import KeepTheRhythm from "../main";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
-import { Heatmap, HeatmapCell } from "@/components/Heatmap";
 import { IntensityConfig } from "src/types";
 import { formatDate } from "@/utils";
 import { KTRView } from "../components/DataView";

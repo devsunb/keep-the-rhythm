@@ -1,3 +1,5 @@
+import { editorStore } from "./store/editorStore";
+
 import { TFile, Editor } from "obsidian";
 import { DailyActivity, db } from "./db/db";
 import KeepTheRhythm from "./main";
@@ -44,14 +46,14 @@ async function updateDatabase(path: string, deltaWords: number) {
 
 	eventEmitter.emit(EVENTS.REFRESH_EVERYTHING);
 	const end = performance.now();
-	console.log(end - start);
+	// console.log(end - start);
 }
 
-let currentFilePath: string | null = null;
-let lastProcessedContent: string = "";
-let lastProcessedWordCount: number = 0;
-let accumulatedWordsDelta: number = 0;
-let dbUpdateTimeout: NodeJS.Timeout | null = null;
+// let editorStore.currentFilePath: string | null = null;
+// let lastProcessedContent: string = "";
+// let lastProcessedWordCount: number = 0;
+// let editorStore.accumulatedWordsDelta: number = 0;
+// let dbUpdateTimeout: NodeJS.Timeout | null = null;
 
 // Debounce time in milliseconds
 const DEBOUNCE_TIME = 100; // 2 seconds
@@ -71,22 +73,26 @@ export function handleEditorChange(
 	const currentContent = info.data;
 
 	// If we've switched to a different file, update DB and reset tracking
-	if (currentFilePath !== filePath) {
+	if (editorStore.currentFilePath !== filePath) {
 		// If we have accumulated changes for the previous file, save them
-		if (currentFilePath && accumulatedWordsDelta !== 0) {
+		if (
+			editorStore.currentFilePath &&
+			editorStore.accumulatedWordsDelta !== 0
+		) {
 			flushChangesToDB(file);
 		}
 
 		// Reset for new file
-		currentFilePath = filePath;
-		lastProcessedContent = "";
-		lastProcessedWordCount = 0;
-		accumulatedWordsDelta = 0;
+		editorStore.setCurrentFilePath(filePath);
+		editorStore.setLastProcessedContent("");
+		editorStore.setLastProcessedWordCount(0);
+		editorStore.setAccumulatedWordsDelta(0);
 
 		// Clear any pending timeouts
-		if (dbUpdateTimeout) {
-			clearTimeout(dbUpdateTimeout);
-			dbUpdateTimeout = null;
+		if (editorStore.dbUpdateTimeout) {
+			clearTimeout(editorStore.dbUpdateTimeout);
+			editorStore.setDbUpdateTimeout(null);
+			// editorStore.dbUpdateTimeoutt = null;
 		}
 	}
 
@@ -100,14 +106,15 @@ export function handleEditorChange(
 	);
 
 	// Handle first time seeing this file
-	if (!lastProcessedContent) {
-		lastProcessedContent = currentContent;
-		lastProcessedWordCount = currentWordCount;
+	if (!editorStore.lastProcessedContent) {
+		editorStore.setLastProcessedContent(currentContent);
+		editorStore.setLastProcessedWordCount(currentWordCount);
+		// lastProcessedWordCount = currentWordCount;
 		return;
 	}
 
 	// Calculate delta - will be negative for deletions
-	const wordsDelta = currentWordCount - lastProcessedWordCount;
+	const wordsDelta = currentWordCount - editorStore.lastProcessedWordCount;
 
 	// Only proceed if there's a change in word count
 	if (wordsDelta !== 0) {
@@ -116,51 +123,58 @@ export function handleEditorChange(
 		// console.log("Current word count:", currentWordCount);
 
 		// Accumulate changes
-		accumulatedWordsDelta += wordsDelta;
+		editorStore.setAccumulatedWordsDelta(
+			editorStore.accumulatedWordsDelta + wordsDelta,
+		);
 
 		// Reset the debounce timer
-		if (dbUpdateTimeout) {
-			clearTimeout(dbUpdateTimeout);
+		if (editorStore.dbUpdateTimeout) {
+			clearTimeout(editorStore.dbUpdateTimeout);
 		}
 
 		// Set a new timer to update the database after the debounce period
-		dbUpdateTimeout = setTimeout(() => {
-			flushChangesToDB(file);
-			dbUpdateTimeout = null;
-		}, DEBOUNCE_TIME);
+		editorStore.setDbUpdateTimeout(
+			setTimeout(() => {
+				flushChangesToDB(file);
+				editorStore.setDbUpdateTimeout(null);
+			}, DEBOUNCE_TIME),
+		);
 
 		// Update our word count reference
-		lastProcessedWordCount = currentWordCount;
+		editorStore.setLastProcessedWordCount(currentWordCount);
 	}
 
 	// Always update our reference content
-	lastProcessedContent = currentContent;
+	editorStore.setLastProcessedContent(currentContent);
 }
 
 function flushChangesToDB(file: TFile) {
-	if (accumulatedWordsDelta === 0) return;
+	if (editorStore.accumulatedWordsDelta === 0) return;
 
 	console.log(
-		`Updating database with accumulated change of ${accumulatedWordsDelta} words`,
+		`Updating database with accumulated change of ${editorStore.accumulatedWordsDelta} words`,
 	);
 
 	// Update the database with accumulated changes
-	updateDatabase(file.path, accumulatedWordsDelta);
+	updateDatabase(file.path, editorStore.accumulatedWordsDelta);
 
 	// Reset accumulator
-	accumulatedWordsDelta = 0;
+	editorStore.setAccumulatedWordsDelta(0);
 }
 
 // Clean up when plugin is unloaded
 export function cleanup() {
-	if (dbUpdateTimeout) {
-		clearTimeout(dbUpdateTimeout);
+	if (editorStore.dbUpdateTimeout) {
+		clearTimeout(editorStore.dbUpdateTimeout);
 	}
 
 	// If there are any pending changes, flush them
-	if (currentFilePath && accumulatedWordsDelta !== 0) {
+	if (
+		editorStore.currentFilePath &&
+		editorStore.accumulatedWordsDelta !== 0
+	) {
 		const app = window.app;
-		const file = app.vault.getFileByPath(currentFilePath);
+		const file = app.vault.getFileByPath(editorStore.currentFilePath);
 		if (file) {
 			flushChangesToDB(file as TFile);
 		}
@@ -228,11 +242,16 @@ class EventEmitter {
 export const eventEmitter = new EventEmitter();
 
 export const EVENTS = {
+	// in need to create a cache of data previous from today
+	// since only today will be updated it will reduce a lot of the
+	// queries to the db to previous days
 	REFRESH_EVERYTHING: "REFRESH_EVERYTHING",
+	UPDATE_TODAY: "REFRESH_EVERYTHING",
+	UPDATE_EDITOR: "UPDATE_EDITOR",
 	// Add more events as needed
 };
 
-// let currentFilePath: string | null = null;
+// let editorStore.currentFilePath: string | null = null;
 // let lastProcessedContent: string = "";
 // let lastProcessedWordCount: number = 0;
 
@@ -246,8 +265,8 @@ export const EVENTS = {
 // 		return;
 // 	}
 
-// 	if (currentFilePath !== file.path) {
-// 		currentFilePath = file.path;
+// 	if (editorStore.currentFilePath !== file.path) {
+// 		editorStore.currentFilePath = file.path;
 // 		lastProcessedContent = ""; // Reset when switching files
 // 		lastProcessedWordCount = 0;
 // 	}

@@ -2,6 +2,8 @@ import { SlotOption } from "./types";
 
 export function getSlotLabel(option: SlotOption) {
 	switch (option) {
+		case SlotOption.CURRENT_FILE:
+			return "This File";
 		case SlotOption.THIS_DAY:
 			return "Today";
 		case SlotOption.THIS_WEEK:
