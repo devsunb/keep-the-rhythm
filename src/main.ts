@@ -11,12 +11,11 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
-// import { historicDataCache } from "./core/historicDataCache";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "@/defs/types";
 import { db, removeDuplicatedDailyEntries } from "@/db/db";
-import { EVENTS, state } from "./core/pluginState";
-import { SettingsTab } from "./ui/views/SettingsTab";
-import { Heatmap } from "./ui/components/Heatmap";
+import { EVENTS, state } from "@/core/pluginState";
+import { SettingsTab } from "@/ui/views/SettingsTab";
+import { Heatmap } from "@/ui/components/Heatmap";
 
 import * as utils from "@/utils/utils";
 import * as events from "@/core/events";

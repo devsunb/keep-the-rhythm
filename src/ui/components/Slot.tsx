@@ -102,22 +102,24 @@ export const Slot = ({
 		setShowCalcType(
 			optionType !== SlotOption.CURRENT_FILE &&
 				optionType !== SlotOption.THIS_DAY &&
-				optionType !== SlotOption.LAST_DAY,
+				optionType !== SlotOption.LAST_DAY &&
+				optionType !== SlotOption.WHOLE_VAULT &&
+				optionType !== SlotOption.CURRENT_STREAK,
 		);
 	}, [optionType]);
 
 	useEffect(() => {
 		if (calcButtonRef.current) {
-			const icon =
-				calcType == "TOTAL" ? "circle-slash-2" : "circle-slash-2";
-			setIcon(calcButtonRef.current, "sigma");
+			const icon = calcType == "TOTAL" ? "circle-slash-2" : "sigma";
+			setIcon(calcButtonRef.current, icon);
 		}
-	}, [showCalcType]);
+	}, [calcType]);
+
 	useEffect(() => {
 		if (calcButtonRef.current) {
 			const icon =
 				calcType == "TOTAL" ? "circle-slash-2" : "circle-slash-2";
-			setIcon(calcButtonRef.current, "sigma");
+			setIcon(calcButtonRef.current, icon);
 		}
 		if (unitButtonRef.current) {
 			setIcon(unitButtonRef.current, "case-sensitive");
@@ -285,18 +287,25 @@ export const Slot = ({
 			<div id="customID" className="slot__label">
 				<div>{getSlotLabel(optionType)}</div>
 				<div className="slot__buttons">
-					{showCalcType && (
-						<button
-							className="KTR-min-button"
-							ref={calcButtonRef}
-							onClick={() => {
-								handleCalcClick();
-							}}
-						>
-							{calcType == "TOTAL" ? "TOTAL" : "AVG"}
-						</button>
-					)}
 					<RadixTooltip.Provider delayDuration={200}>
+						{showCalcType && (
+							<Tooltip
+								content={
+									calcType == "TOTAL"
+										? "Show average"
+										: "Show total"
+								}
+							>
+								<button
+									className="KTR-min-button"
+									ref={calcButtonRef}
+									onClick={() => {
+										handleCalcClick();
+									}}
+								></button>
+							</Tooltip>
+						)}
+
 						<Tooltip content="Change Unit">
 							<button
 								className="KTR-min-button"

@@ -29,6 +29,9 @@ export class PluginState {
 	private _cache: Record<string, number> = {};
 	private _cacheIsSet: boolean = false;
 
+	private _currentStreak: number = 0;
+	private _wordsWrittenToday: number = 0;
+
 	get historicalCache() {
 		return this._cache;
 	}

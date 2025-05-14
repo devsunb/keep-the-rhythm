@@ -38,17 +38,17 @@ export enum Unit {
 
 export enum SlotOption {
 	CURRENT_FILE = "CURRENT_FILE",
-	CURRENT_STREAK = "CURRENT_STREAK",
+	CURRENT_STREAK = "CURRENT_STREAK", // not done yet
 	THIS_DAY = "THIS_DAY", // Add progress bar towards daily goal
 	THIS_WEEK = "THIS_WEEK",
 	THIS_MONTH = "THIS_MONTH",
 	THIS_YEAR = "THIS_YEAR",
-	LAST_DAY = "LAST_DAY",
+	LAST_DAY = "LAST_DAY", // not done yet (24hours)
 	LAST_WEEK = "LAST_WEEK",
 	LAST_MONTH = "LAST_MONTH",
 	LAST_YEAR = "LAST_YEAR",
-	WHOLE_VAULT = "WHOLE_VAULT",
-	THIS_FOLDER = "THIS_FOLDER",
+	WHOLE_VAULT = "WHOLE_VAULT", // not done yet
+	// THIS_FOLDER = "THIS_FOLDER", //not done yet
 }
 
 export enum HeatmapColorModes {
