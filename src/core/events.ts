@@ -5,6 +5,7 @@ import KeepTheRhythm from "../main";
 import { getLanguageBasedWordCount } from "@/core/wordCounting";
 import { formatDate, floorMomentToFive } from "../utils/utils";
 import { moment as _moment } from "obsidian";
+import { emit } from "process";
 
 const moment = _moment as unknown as typeof _moment.default;
 
@@ -28,12 +29,14 @@ export async function handleEditorChange(
 
 	const activity = state.currentActivity;
 
+	//FIXME: this is creating the bug where two activities are created for the same file
+
 	/** Handle mismatches between state and current opened file */
 	if (!activity) {
-		await handleFileOpen(info.file, plugin);
+		await handleFileOpen(info.file);
 		return;
 	} else if (activity?.filePath !== info.file.path) {
-		await handleFileOpen(info.file, plugin);
+		await handleFileOpen(info.file);
 		return;
 	}
 
@@ -83,21 +86,17 @@ export async function handleEditorChange(
 
 	if (!lastTimeKey || lastTimeKey !== currentTimeKey) {
 		/** Time key doesn't exist or is different from the current one */
-		console.log("creating new key");
 		state.currentActivity.changes[currentTimeKey] = {
 			w: wordsAdded || 0,
 			c: charsAdded || 0,
 		};
-		console.log(state.currentActivity.changes);
 	} else {
 		/** Key exists and is equal to the current, so we just add the wordsAdded */
-		console.log("using existing key");
 		const lastData = state.currentActivity.changes[lastTimeKey];
 		state.currentActivity.changes[lastTimeKey] = {
 			w: lastData.w + wordsAdded,
 			c: lastData.c + charsAdded,
 		};
-		console.log(state.currentActivity.changes);
 	}
 
 	// TODO: update to only refresh today's data
@@ -112,6 +111,140 @@ export async function handleEditorChange(
 }
 
 /**
+ * @function handleFileDelete
+ * Should probably just get the fileWordCount and consider it as delta in it's dailyActivity?
+ */
+export async function handleFileDelete(file: TFile) {
+	//FUTURE: correct file delta is only calculated if the user opens the file first
+	// if he doesnt there is no daily activity to get the current file count and it will not consider that into the calculations
+	try {
+		await db.dailyActivity
+			.where("[date+filePath]")
+			.equals([state.today, file.path])
+			.modify((dailyEntry) => {
+				let wordSum = 0;
+				let charSum = 0;
+
+				const changes = Object.entries(dailyEntry.changes);
+				const currentTimeKey =
+					floorMomentToFive(moment()).format("HH:mm");
+
+				/** If no changed was made to the file
+				 *  Then the delta is just the word count when it was opened
+				 */
+
+				if (!changes || changes?.length == 0) {
+					console.log("changes should be one here wtf");
+					console.log(changes);
+					dailyEntry.changes[currentTimeKey] = {
+						w: -dailyEntry.wordCountStart,
+						c: -dailyEntry.charCountStart,
+					};
+					return;
+				}
+
+				/** If there where changes made,
+				 *  We need to sum those changes
+				 *  The last change is only included if it's timekey isn't the current one
+				 */
+				const lastTimeKey = changes[changes.length - 1][0];
+
+				for (let i = 0; i < changes.length - 1; i++) {
+					wordSum += changes[i][1].w;
+					charSum += changes[i][1].c;
+				}
+
+				if (lastTimeKey !== currentTimeKey) {
+					console.log("same time key as last one");
+					console.log(changes[changes.length - 1][1]);
+					wordSum += changes[changes.length - 1][1].w;
+					charSum += changes[changes.length - 1][1].c;
+				}
+
+				dailyEntry.changes[currentTimeKey] = {
+					w: -(wordSum + dailyEntry.wordCountStart),
+					c: -(charSum + dailyEntry.charCountStart),
+				};
+			});
+
+		state.emit(EVENTS.REFRESH_EVERYTHING);
+	} catch (error) {
+		console.error(`KTR failed deleting ${file.path} | ${error}`);
+	}
+}
+
+/**
+ * @function handleFileCreate
+ * - Add file to FileStats table?
+ */
+export function handleFileCreate(file: TFile) {}
+
+/**
+ * @function handleFileRename
+ * Update all references to this file to match new filepath
+ */
+export async function handleFileRename(file: TFile, oldPath: string) {
+	try {
+		await db.dailyActivity
+			.where("filePath")
+			.equals(oldPath)
+			.modify((dailyEntry) => {
+				dailyEntry.filePath = file.path;
+			});
+
+		state.emit(EVENTS.REFRESH_EVERYTHING);
+	} catch (error) {
+		console.error(`KTR failed renaming ${file.path} | ${error}`);
+	}
+}
+
+/**
+ * @function handleFileOpen
+ * - Updates the state to match the current opened file
+ * - Creates an activity for the opened file if it doens't exist
+ * - Checks if the day passed to update data (maybe should be somewhere else)
+ */
+
+export async function handleFileOpen(file: TFile) {
+	const today = formatDate(new Date());
+	if (today !== state.today) {
+		state.setToday(today);
+	}
+
+	if (file.path == state.currentActivity?.filePath) {
+		return;
+	}
+
+	let entry = await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([state.today, file.path])
+		.first();
+
+	// File was not yet seen today
+	if (!entry) {
+		const content = await state.plugin.app.vault.read(file);
+		const currentWordCount = getLanguageBasedWordCount(
+			content,
+			state.plugin.data.settings.enabledLanguages,
+		);
+
+		const id = await db.dailyActivity.add({
+			date: state.today,
+			filePath: file.path,
+			device: state.plugin.deviceId,
+			wordCountStart: currentWordCount,
+			charCountStart: content.length,
+			changes: {},
+		});
+
+		entry = await db.dailyActivity.get(id);
+	}
+
+	if (entry) state.setCurrentActivity(entry);
+	state.emit(EVENTS.REFRESH_EVERYTHING);
+}
+
+/**
  * @function flushChangesToDB
  * Debounced function that matches the state to the DB entries;
  */
@@ -119,7 +252,8 @@ async function flushChangesToDB(activity: DailyActivity) {
 	// TODO: use this globally, making all updates on info real time by using stores but flushing them to the DB ocasionally.
 	// probably here is a good moment to update the STREAK data?
 
-	console.log("flushing to DB");
+	if (!activity) return;
+
 	await db.dailyActivity
 		.where("[date+filePath]")
 		.equals([activity.date, activity.filePath])
@@ -134,77 +268,12 @@ async function flushChangesToDB(activity: DailyActivity) {
 }
 
 /**
- * @function cleanup
+ * @function cleanDBTimeout
  * Clears timeouts and flushed any data on memory to the DB
  */
-export function cleanup() {
+export function cleanDBTimeout() {
 	if (dbUpdateTimeout) {
 		clearTimeout(dbUpdateTimeout);
 	}
 	flushChangesToDB(state.currentActivity);
-}
-
-/**
- * @function handleFileDelete
- * Should probably just get the fileWordCount and consider it as delta in it's dailyActivity?
- */
-export function handleFileDelete(file: TFile) {}
-
-/**
- * @function handleFileCreate
- * - Add file to FileStats table?
- */
-export function handleFileCreate(file: TFile) {}
-
-/**
- * @function handleFileRename
- * Update all references to this file to match new filepath
- */
-export function handleFileRename(file: TFile) {}
-
-/**
- * @function handleFileOpen
- * - Updates the state to match the current opened file
- * - Creates an activity for the opened file if it doens't exist
- * - Checks if the day passed to update data (maybe should be somewhere else)
- */
-
-export async function handleFileOpen(file: TFile, plugin: KeepTheRhythm) {
-	const today = formatDate(new Date());
-	if (today !== state.today) {
-		state.setToday(today);
-	}
-
-	if (file.path == state.currentActivity?.filePath) {
-		console.log("same file as before, returning");
-		return;
-	}
-
-	let entry = await db.dailyActivity
-		.where("[date+filePath]")
-		.equals([today, file.path])
-		.first();
-
-	// File was not yet seen today
-	if (!entry) {
-		const content = await plugin.app.vault.read(file);
-		const currentWordCount = getLanguageBasedWordCount(
-			content,
-			plugin.data.settings.enabledLanguages,
-		);
-
-		const id = await db.dailyActivity.add({
-			date: today,
-			filePath: file.path,
-			device: plugin.deviceId,
-			wordCountStart: currentWordCount,
-			charCountStart: content.length,
-			changes: {},
-		});
-
-		entry = await db.dailyActivity.get(id);
-	}
-
-	if (entry) state.setCurrentActivity(entry);
-	state.emit(EVENTS.REFRESH_EVERYTHING);
 }

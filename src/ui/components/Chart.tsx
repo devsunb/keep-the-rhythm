@@ -43,7 +43,6 @@ const DailyActivityChart: React.FC<Props> = ({ date }) => {
 	useEffect(() => {
 		const fetchData = async () => {
 			const result = await getWordAndCharCountByTimeKey(date);
-			console.log(result);
 			setDataPoints(result);
 		};
 

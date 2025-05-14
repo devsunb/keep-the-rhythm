@@ -58,8 +58,6 @@ export class PluginCoreUI extends ItemView {
 		const sideBarConfig =
 			this.plugin.data.settings.sidebarConfig.visibility;
 
-		console.log(this.plugin.data);
-
 		this.root.render(
 			React.createElement(KTRView, {
 				plugin: this.plugin,

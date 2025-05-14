@@ -60,7 +60,6 @@ export class PluginState {
 	}
 	setCurrentActivity(acitvity: DailyActivity) {
 		this._currentFileActivity = acitvity;
-		console.log("FILE CHANGED" + this._currentFileActivity.filePath);
 		this.emit(EVENTS.FILE_CHANGED);
 	}
 

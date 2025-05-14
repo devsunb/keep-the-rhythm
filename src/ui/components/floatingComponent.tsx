@@ -60,10 +60,7 @@ const FloatingUI: React.FC<FloatingUIProps> = ({
 		};
 	}, [isDragging, handleMouseMove, handleMouseUp]);
 
-	const handleAction = () => {
-		console.log("Action performed in React component");
-		// Add your custom action here
-	};
+	const handleAction = () => {};
 
 	return (
 		<div

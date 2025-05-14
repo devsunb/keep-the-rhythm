@@ -85,9 +85,6 @@ export const Slot = ({
 
 	const handleDeleteClick = () => {
 		if (plugin && plugin.data && plugin.data.settings) {
-			console.log("removing slot");
-			console.log(plugin.data.settings.sidebarConfig.slots[index]);
-
 			const newSlots = plugin.data.settings.sidebarConfig.slots.filter(
 				(_, i) => i !== index,
 			);
@@ -96,7 +93,6 @@ export const Slot = ({
 				newSlots[i].index = i;
 			}
 
-			console.log(newSlots);
 			plugin.data.settings.sidebarConfig.slots = newSlots;
 			plugin.updateAndSaveEverything();
 		}
@@ -111,8 +107,6 @@ export const Slot = ({
 	}, [optionType]);
 
 	useEffect(() => {
-		console.log(optionType + ": " + showCalcType);
-		console.log(showCalcType);
 		if (calcButtonRef.current) {
 			const icon =
 				calcType == "TOTAL" ? "circle-slash-2" : "circle-slash-2";

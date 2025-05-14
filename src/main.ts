@@ -13,7 +13,6 @@ import { createRoot } from "react-dom/client";
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
 import { historicDataCache } from "./core/historicDataCache";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "@/defs/types";
-import { initializeFileStats } from "@/core/initializeFileStats";
 import { db, removeDuplicatedDailyEntries } from "@/db/db";
 import { EVENTS, state } from "./core/pluginState";
 import { SettingsTab } from "./ui/views/SettingsTab";
@@ -32,7 +31,10 @@ export default class KeepTheRhythm extends Plugin {
 		{ root: any; ctx: MarkdownPostProcessorContext; source: string }
 	> = new Map();
 
+	// #region Initialization
+
 	async onload() {
+		/** Creates references for STATE usage across React Components */
 		state.setApp(this.app);
 		state.setPlugin(this);
 
@@ -45,24 +47,28 @@ export default class KeepTheRhythm extends Plugin {
 			this.data = loadedData;
 		}
 
-		/** Initialize FileStats db */
-		await initializeFileStats(
-			this.app.vault,
-			this.data.settings.enabledLanguages,
+		/** Set of utility functions that registers required objects and sets plugin state */
+		this.setDeviceId(); // Sets ID using LOCAL STORAGE if it doesn't exist
+		this.initializeViews(); // Registers plugin SIDEBAR view
+		this.initializeCommands(); // Registers all COMMANDS to obsidian API
+		this.initializeEvents(); // Registers all EVENTS to obsidian API
+		this.applyColorStyles(); // Applies color styles (CSS Custom Properties) to app container
+		this.addSettingTab(new SettingsTab(this.app, this)); // Registers the settings tab for plugin configuration
+
+		/** Resets historic cache used for HEATMAP component */
+		historicDataCache.resetCache();
+
+		/** Registers CUSTOM CODE BLOCKS */
+		this.registerMarkdownCodeBlockProcessor(
+			"keep-the-rhythm",
+			this.createCodeBlockProcessor(),
 		);
 
-		// await migrateFromJSON(previousData);
+		// TODO: await migrateFromJSON(previousData);
 
-		this.setDeviceId();
-		this.saveStatsDataToJSON();
-		historicDataCache.resetCache();
-		this.initializeViews();
-		this.initializeCommands();
-		this.initializeEvents();
-		this.applyColorStyles();
-		this.createSettingsTab();
-		const processor = this.createCodeBlockProcessor();
-		this.registerMarkdownCodeBlockProcessor("keep-the-rhythm", processor);
+		state.on(EVENTS.REFRESH_EVERYTHING, () => {
+			this.saveStatsDataToJSON();
+		});
 	}
 
 	private setDeviceId() {
@@ -88,152 +94,6 @@ export default class KeepTheRhythm extends Plugin {
 		}
 	}
 
-	private initializeViews() {
-		this.registerView(VIEW_TYPE, (leaf) => {
-			this.view = new PluginView(leaf, this);
-			return this.view;
-		});
-	}
-
-	private initializeCommands() {
-		this.addRibbonIcon("calendar-days", "Word Count Stats", () => {
-			this.activateView();
-		});
-
-		this.addCommand({
-			id: "open-keep-the-rhythm",
-			name: "Open tracking heatmap",
-			callback: () => {
-				this.activateView();
-			},
-		});
-
-		this.addCommand({
-			id: "open-keep-the-rhythm",
-			name: "Remove duplicated entries",
-			callback: () => {
-				removeDuplicatedDailyEntries();
-			},
-		});
-
-		this.addCommand({
-			id: "mock-data",
-			name: "Mock data for last month",
-			callback: () => {
-				utils.mockMonthDailyActivity();
-				state.emit(EVENTS.REFRESH_EVERYTHING);
-			},
-		});
-
-		this.addCommand({
-			id: "delete-db",
-			name: "Delete database",
-			callback: () => {
-				db.dailyActivity.clear();
-				db.fileStats.clear();
-				// emit refresh
-			},
-		});
-
-		this.addCommand({
-			id: "reset-keep-the-rhythm",
-			name: "Reset Settings",
-			callback: () => {
-				this.data.settings = DEFAULT_SETTINGS;
-				this.saveData(this.data);
-				console.log(this.data.settings.sidebarConfig.slots);
-				utils.log("settings reseted");
-			},
-		});
-	}
-	private initializeEvents() {
-		this.registerEvent(
-			this.app.workspace.on("editor-change", (editor, info) => {
-				events.handleEditorChange(editor, info, this);
-			}),
-		);
-		this.registerEvent(
-			this.app.vault.on("delete", (file: TAbstractFile) => {
-				if (file instanceof TFile) events.handleFileDelete(file);
-			}),
-		);
-		this.registerEvent(
-			this.app.vault.on("create", (file: TAbstractFile) => {
-				if (file instanceof TFile) events.handleFileCreate(file);
-			}),
-		);
-		this.registerEvent(
-			this.app.vault.on("rename", (file: TAbstractFile) => {
-				if (file instanceof TFile) events.handleFileRename(file);
-			}),
-		);
-		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", (leaf) => {
-				if (
-					leaf?.view instanceof MarkdownView &&
-					leaf?.view.file instanceof TFile
-				) {
-					events.handleFileOpen(leaf.view.file, this);
-				} else {
-					return;
-				}
-			}),
-		);
-	}
-
-	async onExternalSettingsChange() {
-		try {
-			const newData = (await this.loadData()) as PluginData;
-
-			if (JSON.stringify(newData) == JSON.stringify(this.data)) {
-				return;
-			}
-
-			newData.stats?.dailyActivity.forEach(async (activity, index) => {
-				let existingActivity;
-
-				if (activity.id) {
-					existingActivity = await db.dailyActivity.get(activity.id);
-				}
-
-				/** Find any new activity and add it to the db */
-				if (
-					existingActivity &&
-					JSON.stringify(existingActivity) ===
-						JSON.stringify(activity)
-				) {
-					return;
-				} else {
-					db.dailyActivity.add(activity);
-				}
-			});
-
-			/** Assign new external settings*/
-			if (this.data.settings !== newData.settings) {
-				this.data.settings = newData.settings;
-			}
-
-			//TODO: ADD "SAVE AND UPDATE" HERE + EMIT UPDATE TO PLUGIN STATE
-		} catch (error) {
-			console.error("Error in onExternalSettingsChange:", error);
-		}
-	}
-
-	private async saveStatsDataToJSON() {
-		const start = performance.now();
-		const fileStats = await db.fileStats.toArray();
-		const dailyActivity = await db.dailyActivity.toArray();
-
-		this.data.stats = {
-			fileStats: fileStats,
-			dailyActivity: dailyActivity,
-		};
-
-		await this.saveData(this.data);
-		const end = performance.now();
-		// utils.log(`${end - start}`);
-	}
-
 	private applyColorStyles() {
 		const containerStyle = this.app.workspace.containerEl.style;
 		let light = undefined;
@@ -251,10 +111,6 @@ export default class KeepTheRhythm extends Plugin {
 				containerStyle.setProperty(`--dark-${i}`, dark[key]);
 			}
 		}
-	}
-
-	private createSettingsTab() {
-		this.addSettingTab(new SettingsTab(this.app, this));
 	}
 
 	private createCodeBlockProcessor(): (
@@ -370,6 +226,146 @@ export default class KeepTheRhythm extends Plugin {
 		// };
 	}
 
+	private initializeViews() {
+		this.registerView(VIEW_TYPE, (leaf) => {
+			this.view = new PluginView(leaf, this);
+			return this.view;
+		});
+	}
+
+	private initializeCommands() {
+		this.addRibbonIcon("calendar-days", "Word Count Stats", () => {
+			this.activateView();
+		});
+
+		this.addCommand({
+			id: "open-keep-the-rhythm",
+			name: "Open tracking heatmap",
+			callback: () => {
+				this.activateView();
+			},
+		});
+
+		this.addCommand({
+			id: "open-keep-the-rhythm",
+			name: "Remove duplicated entries",
+			callback: () => {
+				removeDuplicatedDailyEntries();
+			},
+		});
+
+		this.addCommand({
+			id: "mock-data",
+			name: "Mock data for last month",
+			callback: () => {
+				utils.mockMonthDailyActivity();
+				state.emit(EVENTS.REFRESH_EVERYTHING);
+			},
+		});
+
+		this.addCommand({
+			id: "delete-db",
+			name: "Delete database",
+			callback: () => {
+				db.dailyActivity.clear();
+				db.fileStats.clear();
+				// emit refresh
+			},
+		});
+
+		this.addCommand({
+			id: "reset-keep-the-rhythm",
+			name: "Reset Settings",
+			callback: () => {
+				this.data.settings = DEFAULT_SETTINGS;
+				this.saveData(this.data);
+				console.log(this.data.settings.sidebarConfig.slots);
+				utils.log("settings reseted");
+			},
+		});
+	}
+	private initializeEvents() {
+		this.registerEvent(
+			this.app.workspace.on("editor-change", (editor, info) => {
+				events.handleEditorChange(editor, info, this);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on("delete", (file: TAbstractFile) => {
+				if (file instanceof TFile) events.handleFileDelete(file);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on("create", (file: TAbstractFile) => {
+				if (file instanceof TFile) events.handleFileCreate(file);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on(
+				"rename",
+				(file: TAbstractFile, oldPath: string) => {
+					if (file instanceof TFile)
+						events.handleFileRename(file, oldPath);
+				},
+			),
+		);
+		this.registerEvent(
+			this.app.workspace.on("file-open", (file) => {
+				if (file) events.handleFileOpen(file);
+			}),
+		);
+	}
+
+	// #endregion
+
+	// #region Unloading
+
+	async onunload() {
+		events.cleanDBTimeout();
+	}
+
+	// #endregion
+
+	async onExternalSettingsChange() {
+		try {
+			const newData = (await this.loadData()) as PluginData;
+
+			if (JSON.stringify(newData) == JSON.stringify(this.data)) {
+				return;
+			}
+
+			newData.stats?.dailyActivity.forEach(async (activity, index) => {
+				let existingActivity;
+
+				if (activity.id) {
+					existingActivity = await db.dailyActivity.get(activity.id);
+				}
+
+				/** Find any new activity and add it to the db */
+				if (
+					existingActivity &&
+					JSON.stringify(existingActivity) ===
+						JSON.stringify(activity)
+				) {
+					return;
+				} else {
+					db.dailyActivity.add(activity);
+				}
+			});
+
+			/** Assign new external settings*/
+			if (this.data.settings !== newData.settings) {
+				this.data.settings = newData.settings;
+			}
+
+			//TODO: ADD "SAVE AND UPDATE" HERE + EMIT UPDATE TO PLUGIN STATE
+		} catch (error) {
+			console.error("Error in onExternalSettingsChange:", error);
+		}
+	}
+
+	// #region SAVING DATA
+
 	public async updateAndSaveEverything() {
 		await this.saveData(this.data);
 		console.log("saving everything");
@@ -377,6 +373,24 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	public async quietSave() {
+		console.log("saving to json");
 		await this.saveData(this.data);
 	}
+
+	private async saveStatsDataToJSON() {
+		const start = performance.now();
+		const fileStats = await db.fileStats.toArray();
+		const dailyActivity = await db.dailyActivity.toArray();
+
+		this.data.stats = {
+			fileStats: fileStats,
+			dailyActivity: dailyActivity,
+		};
+
+		await this.saveData(this.data);
+		const end = performance.now();
+		// utils.log(`${end - start}`);
+	}
+
+	// #endregion
 }
