@@ -64,10 +64,10 @@ export enum HeatmapColorModes {
 // rounded + hide week labels + hide month labels?
 
 export interface Settings {
-	dailyWritingGoal: number;
-	enabledLanguages: Language[];
-	globalFilter?: string;
-	startOfTheWeek: "MONDAY" | "SUNDAY";
+	dailyWritingGoal: number; // created as setting, not used anywhere yet
+	enabledLanguages: Language[]; // guides the definition of REGEXes for word counting
+	globalFilter?: string; // not used yet
+	startOfTheWeek: "MONDAY" | "SUNDAY"; // not used yet, should be used to offset start of the week calculations and heatmap
 	heatmapConfig: HeatmapConfig;
 	sidebarConfig: {
 		visibility: {

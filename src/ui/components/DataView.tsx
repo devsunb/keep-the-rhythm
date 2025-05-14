@@ -6,7 +6,6 @@ import KeepTheRhythm from "@/main";
 import { Heatmap } from "./Heatmap";
 import { SlotWrapper } from "./SlotWrapper";
 import { Entries } from "./Entries";
-import { CustomChart } from "./Chart";
 import { EVENTS, state } from "@/core/pluginState";
 
 interface KTRView {

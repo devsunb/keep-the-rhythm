@@ -11,7 +11,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
-import { historicDataCache } from "./core/historicDataCache";
+// import { historicDataCache } from "./core/historicDataCache";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "@/defs/types";
 import { db, removeDuplicatedDailyEntries } from "@/db/db";
 import { EVENTS, state } from "./core/pluginState";
@@ -24,7 +24,7 @@ import * as events from "@/core/events";
 export default class KeepTheRhythm extends Plugin {
 	regex: RegExp;
 	data: PluginData;
-	deviceId: string;
+	// deviceId: string;
 	view: PluginView | null;
 	codeBlockRoots: Map<
 		HTMLElement,
@@ -48,15 +48,13 @@ export default class KeepTheRhythm extends Plugin {
 		}
 
 		/** Set of utility functions that registers required objects and sets plugin state */
-		this.setDeviceId(); // Sets ID using LOCAL STORAGE if it doesn't exist
+		// this.setDeviceId(); // Sets ID using LOCAL STORAGE if it doesn't exist
 		this.initializeViews(); // Registers plugin SIDEBAR view
 		this.initializeCommands(); // Registers all COMMANDS to obsidian API
 		this.initializeEvents(); // Registers all EVENTS to obsidian API
 		this.applyColorStyles(); // Applies color styles (CSS Custom Properties) to app container
 		this.addSettingTab(new SettingsTab(this.app, this)); // Registers the settings tab for plugin configuration
-
-		/** Resets historic cache used for HEATMAP component */
-		historicDataCache.resetCache();
+		state.resetCache();
 
 		/** Registers CUSTOM CODE BLOCKS */
 		this.registerMarkdownCodeBlockProcessor(
@@ -71,14 +69,14 @@ export default class KeepTheRhythm extends Plugin {
 		});
 	}
 
-	private setDeviceId() {
-		let id = localStorage.getItem("ktr-device-id");
-		if (!id) {
-			id = uuidv4();
-			localStorage.setItem("ktr-device-id", id);
-		}
-		this.deviceId = id;
-	}
+	// private setDeviceId() {
+	// 	let id = localStorage.getItem("ktr-device-id");
+	// 	if (!id) {
+	// 		id = uuidv4();
+	// 		localStorage.setItem("ktr-device-id", id);
+	// 	}
+	// 	this.deviceId = id;
+	// }
 
 	async activateView() {
 		if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0) {
@@ -247,7 +245,7 @@ export default class KeepTheRhythm extends Plugin {
 		});
 
 		this.addCommand({
-			id: "open-keep-the-rhythm",
+			id: "remove-duplicated-entries",
 			name: "Remove duplicated entries",
 			callback: () => {
 				removeDuplicatedDailyEntries();

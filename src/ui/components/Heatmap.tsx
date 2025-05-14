@@ -1,4 +1,3 @@
-import { historicDataCache } from "@/core/historicDataCache";
 import {
 	getDateForCell,
 	weeksToShow,

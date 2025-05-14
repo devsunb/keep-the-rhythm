@@ -2,28 +2,14 @@ import Dexie from "dexie";
 import { Unit } from "../defs/types";
 import { start } from "repl";
 
-export interface FileStatsTracking {
-	id?: number;
-	path: string;
-	timesOpened: number;
-	changes: {
-		[date: string]: DailyEntry;
-	};
-}
-
-export interface DailyEntry {
-	wordCountStart: number;
-	charCountStart: number;
-	timesOpened: number;
-	updates: {
-		[timeKey: string]: TimeEntry;
-	};
-}
-
-export interface TimeEntry {
-	w: number;
-	c: number;
-}
+// export interface DailyEntry {
+// 	wordCountStart: number;
+// 	charCountStart: number;
+// 	timesOpened: number;
+// 	updates: {
+// 		[timeKey: string]: TimeEntry;
+// 	};
+// }
 
 export interface FileStats {
 	id?: number;
@@ -40,13 +26,16 @@ export interface FileStats {
 export interface DailyActivity {
 	id?: number;
 	date: string;
-	device: string;
 	filePath: string;
 	wordCountStart: number;
 	charCountStart: number;
-	changes: {
-		[timeKey: string]: TimeEntry;
-	};
+	changes: TimeEntry[];
+}
+
+export interface TimeEntry {
+	timeKey: string;
+	w: number;
+	c: number;
 }
 
 class KTRDatabase extends Dexie {

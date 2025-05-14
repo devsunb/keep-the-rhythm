@@ -1,8 +1,13 @@
-import { formatDate, mockMonthDailyActivity } from "@/utils/utils";
+import {
+	formatDate,
+	mockMonthDailyActivity,
+	sumTimeEntries,
+} from "@/utils/utils";
 import { DailyActivity } from "@/db/db";
 import React, { useEffect, useState } from "react";
 import { EVENTS, state } from "@/core/pluginState";
 import { getActivityByDate } from "@/db/db";
+import { Unit } from "@/defs/types";
 
 // import type { PluginData } from "../types";
 // import KeepTheRhythm from "../../main";
@@ -20,7 +25,9 @@ export const Entries = ({}) => {
 		const fetchedActivities = await getActivityByDate(todayStr);
 
 		setEntries(
-			fetchedActivities.filter((entry) => entry.wordsWritten != 0),
+			fetchedActivities.filter(
+				(entry) => sumTimeEntries(entry, Unit.WORD) != 0,
+			),
 		);
 	};
 
@@ -37,7 +44,7 @@ export const Entries = ({}) => {
 		<div>
 			{entries.map((entry) => (
 				<div key={entry.filePath} className="">
-					{entry.filePath} / {entry.wordsWritten}
+					{entry.filePath} / {sumTimeEntries(entry, Unit.WORD)}
 				</div>
 			))}
 		</div>

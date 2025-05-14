@@ -1,7 +1,7 @@
 import { DailyActivity } from "../db/db";
 import { App } from "obsidian";
-import { db } from "../db/db";
-import { IntensityConfig } from "../defs/types";
+import { db, TimeEntry } from "../db/db";
+import { IntensityConfig, Unit } from "../defs/types";
 import KeepTheRhythm from "../main";
 import { TFile } from "obsidian";
 import { MarkdownView } from "obsidian";
@@ -182,28 +182,26 @@ export async function mockMonthDailyActivity() {
 		const dateStr = day.toISOString().split("T")[0]; // YYYY-MM-DD
 
 		// Simulate some changes throughout the day
-		const changes: Record<string, { w: number; c: number }> = {};
+		const changes: TimeEntry[] = [];
 		const sessions = Math.floor(Math.random() * 5 + 1);
 
 		for (let j = 0; j < sessions; j++) {
-			// const timestamp = new Date(
-			// 	day.getTime() + j * 1000 * 60 * 60,
-			// ).toISOString();
 			const randomHour = getRandomInt(0, 24);
 			const randomMinute = getRandomInt(0, 60);
 			const timestamp =
 				String(randomHour).padStart(2, "0") +
 				":" +
 				String(randomMinute).padStart(2, "0");
-			changes[timestamp] = {
+
+			changes.push({
+				timeKey: timestamp,
 				w: Math.floor(Math.random() * 200),
 				c: Math.floor(Math.random() * 1000),
-			};
+			});
 		}
 
 		activities.push({
 			date: dateStr,
-			device: "Laptop",
 			filePath: `/mock/path/file-${i}.md`,
 			wordCountStart: 0,
 			charCountStart: 0,
@@ -245,4 +243,27 @@ function getRandomInt(min: number, max: number) {
 export function floorMomentToFive(m: any) {
 	const ms = 1000 * 60 * 5;
 	return moment(Math.floor(m.valueOf() / ms) * ms);
+}
+
+export function sumTimeEntries(
+	dailyActivity: DailyActivity,
+	unit: Unit,
+): number {
+	let total = 0;
+
+	if (unit === Unit.WORD) {
+		total += dailyActivity.wordCountStart;
+		for (const entry of dailyActivity.changes) {
+			total += entry.w;
+		}
+	}
+
+	if (unit === Unit.CHAR) {
+		total += dailyActivity.charCountStart;
+		for (const entry of dailyActivity.changes) {
+			total += entry.c;
+		}
+	}
+
+	return total;
 }

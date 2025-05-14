@@ -1,6 +1,6 @@
 import { EVENTS, state } from "./pluginState";
 import { TFile, Editor } from "obsidian";
-import { DailyActivity, db } from "../db/db";
+import { DailyActivity, db, TimeEntry } from "../db/db";
 import KeepTheRhythm from "../main";
 import { getLanguageBasedWordCount } from "@/core/wordCounting";
 import { formatDate, floorMomentToFive } from "../utils/utils";
@@ -48,7 +48,7 @@ export async function handleEditorChange(
 		plugin.data.settings.enabledLanguages,
 	);
 
-	const currentChanges = Object.values(state.currentActivity.changes);
+	const currentChanges: TimeEntry[] = state.currentActivity.changes;
 
 	/**
 	 * Calculates delta word count based on
@@ -74,9 +74,9 @@ export async function handleEditorChange(
 	 * @const currentTimeKey Rounds current time to multiples of 5 so data is saved in consistent blocks
 	 * Uses floors so it always rounds down (since you can write words in the future rsrs)
 	 */
-	const changesKeys = Object.keys(state.currentActivity.changes);
+	const changes: TimeEntry[] = state.currentActivity.changes;
 
-	const lastTimeKey = changesKeys[changesKeys.length - 1];
+	const lastTimeKey = changes[changes.length - 1];
 	const currentTimeKey = floorMomentToFive(moment()).format("HH:mm");
 
 	/**
@@ -84,19 +84,21 @@ export async function handleEditorChange(
 	 * Time keys are added in blocks of 5 minutes and snap to the nearest time
 	 */
 
-	if (!lastTimeKey || lastTimeKey !== currentTimeKey) {
-		/** Time key doesn't exist or is different from the current one */
-		state.currentActivity.changes[currentTimeKey] = {
+	const existingEntry = changes.find(
+		(entry) => entry.timeKey === currentTimeKey,
+	);
+
+	if (!existingEntry) {
+		// No entry yet for this timeKey, so push a new one
+		changes.push({
+			timeKey: currentTimeKey,
 			w: wordsAdded || 0,
 			c: charsAdded || 0,
-		};
+		});
 	} else {
-		/** Key exists and is equal to the current, so we just add the wordsAdded */
-		const lastData = state.currentActivity.changes[lastTimeKey];
-		state.currentActivity.changes[lastTimeKey] = {
-			w: lastData.w + wordsAdded,
-			c: lastData.c + charsAdded,
-		};
+		// Entry exists, so update the word and char count
+		existingEntry.w += wordsAdded;
+		existingEntry.c += charsAdded;
 	}
 
 	// TODO: update to only refresh today's data
@@ -125,7 +127,6 @@ export async function handleFileDelete(file: TFile) {
 				let wordSum = 0;
 				let charSum = 0;
 
-				const changes = Object.entries(dailyEntry.changes);
 				const currentTimeKey =
 					floorMomentToFive(moment()).format("HH:mm");
 
@@ -133,13 +134,12 @@ export async function handleFileDelete(file: TFile) {
 				 *  Then the delta is just the word count when it was opened
 				 */
 
-				if (!changes || changes?.length == 0) {
-					console.log("changes should be one here wtf");
-					console.log(changes);
-					dailyEntry.changes[currentTimeKey] = {
+				if (!dailyEntry.changes || dailyEntry.changes?.length == 0) {
+					dailyEntry.changes.push({
+						timeKey: currentTimeKey,
 						w: -dailyEntry.wordCountStart,
 						c: -dailyEntry.charCountStart,
-					};
+					});
 					return;
 				}
 
@@ -147,24 +147,38 @@ export async function handleFileDelete(file: TFile) {
 				 *  We need to sum those changes
 				 *  The last change is only included if it's timekey isn't the current one
 				 */
-				const lastTimeKey = changes[changes.length - 1][0];
+				// Get the last change (if any)
+				const lastEntry =
+					dailyEntry.changes[dailyEntry.changes.length - 1];
+				const lastTimeKey = lastEntry?.timeKey;
 
-				for (let i = 0; i < changes.length - 1; i++) {
-					wordSum += changes[i][1].w;
-					charSum += changes[i][1].c;
+				for (let i = 0; i < dailyEntry.changes.length - 1; i++) {
+					wordSum += dailyEntry.changes[i].w;
+					charSum += dailyEntry.changes[i].c;
 				}
 
-				if (lastTimeKey !== currentTimeKey) {
-					console.log("same time key as last one");
-					console.log(changes[changes.length - 1][1]);
-					wordSum += changes[changes.length - 1][1].w;
-					charSum += changes[changes.length - 1][1].c;
+				// If lastTimeKey is not the same as current, include it
+				if (lastEntry && lastTimeKey !== currentTimeKey) {
+					wordSum += lastEntry.w;
+					charSum += lastEntry.c;
 				}
 
-				dailyEntry.changes[currentTimeKey] = {
+				const newEntry: TimeEntry = {
+					timeKey: currentTimeKey,
 					w: -(wordSum + dailyEntry.wordCountStart),
 					c: -(charSum + dailyEntry.charCountStart),
 				};
+
+				// Find and update the existing entry if it exists
+				const existingIndex = dailyEntry.changes.findIndex(
+					(e) => e.timeKey === currentTimeKey,
+				);
+
+				if (existingIndex !== -1) {
+					dailyEntry.changes[existingIndex] = newEntry;
+				} else {
+					dailyEntry.changes.push(newEntry);
+				}
 			});
 
 		state.emit(EVENTS.REFRESH_EVERYTHING);
@@ -231,10 +245,9 @@ export async function handleFileOpen(file: TFile) {
 		const id = await db.dailyActivity.add({
 			date: state.today,
 			filePath: file.path,
-			device: state.plugin.deviceId,
 			wordCountStart: currentWordCount,
 			charCountStart: content.length,
-			changes: {},
+			changes: [],
 		});
 
 		entry = await db.dailyActivity.get(id);
@@ -258,10 +271,28 @@ async function flushChangesToDB(activity: DailyActivity) {
 		.where("[date+filePath]")
 		.equals([activity.date, activity.filePath])
 		.modify((dailyEntry) => {
-			dailyEntry.changes = {
-				...dailyEntry.changes,
-				...state.currentActivity.changes,
-			};
+			const existingChanges: TimeEntry[] = dailyEntry.changes || [];
+			const currentChanges: TimeEntry[] = activity.changes;
+
+			// Convert existing changes to a map
+			const mergedMap: Record<string, TimeEntry> = {};
+			for (const entry of existingChanges) {
+				mergedMap[entry.timeKey] = { ...entry };
+			}
+
+			for (const entry of currentChanges) {
+				if (mergedMap[entry.timeKey]) {
+					mergedMap[entry.timeKey].w += entry.w;
+					mergedMap[entry.timeKey].c += entry.c;
+				} else {
+					mergedMap[entry.timeKey] = { ...entry };
+				}
+			}
+
+			// Convert map back to array and sort by timeKey
+			dailyEntry.changes = Object.values(mergedMap).sort((a, b) =>
+				a.timeKey.localeCompare(b.timeKey),
+			);
 		});
 
 	state.emit(EVENTS.REFRESH_EVERYTHING);

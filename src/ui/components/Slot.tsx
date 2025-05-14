@@ -1,4 +1,4 @@
-import DailyActivityChart from "@/ui/components/Chart";
+// import DailyActivityChart from "@/ui/components/Chart";
 
 // import NumberFlow from "@number-flow/react";
 import { SlotOption, SlotConfig, Unit } from "@/defs/types";
@@ -94,7 +94,7 @@ export const Slot = ({
 			}
 
 			plugin.data.settings.sidebarConfig.slots = newSlots;
-			plugin.updateAndSaveEverything();
+			plugin.quietSave();
 		}
 	};
 
@@ -332,12 +332,10 @@ export const Slot = ({
 				<div className="slot__unit">
 					{unitType.toLowerCase() +
 						"s" +
-						(showCalcType && calcType == "AVG"
-							? " (daily avg.)"
-							: "")}
+						(showCalcType && calcType == "AVG" ? " (avg.)" : "")}
 				</div>
 			</div>
-			{showChart && <DailyActivityChart date={state.today} />}
+			{/* {showChart && <DailyActivityChart date={state.today} />} */}
 		</div>
 	);
 };

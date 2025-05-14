@@ -25,7 +25,7 @@ export class PluginState {
 
 	private _app: App;
 	private _plugin: KeepTheRhythm;
-	private _deviceId: string;
+	// private _deviceId: string;
 	private _cache: Record<string, number> = {};
 	private _cacheIsSet: boolean = false;
 
@@ -47,9 +47,9 @@ export class PluginState {
 	get today() {
 		return this._today;
 	}
-	get deviceId() {
-		return this._deviceId;
-	}
+	// get deviceId() {
+	// 	return this._deviceId;
+	// }
 
 	setApp(app: App) {
 		this._app = app;
