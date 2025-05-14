@@ -1,7 +1,7 @@
 // import { getCurrentDate } from "@/utils";
 // import WordCountPlugin from "main";
 // import { TFile } from "obsidian";
-// import { getExternalWordCount } from "@/wordCounting";
+// import { getLanguageBasedWordCount } from "@/wordCounting";
 
 // export async function handleFileOpen(plugin: WordCountPlugin, file: TFile) {
 // 	if (!file || file.extension !== "md") {
@@ -11,7 +11,7 @@
 // 	try {
 // 		const date = getCurrentDate();
 // 		const content = await plugin.app.vault.read(file);
-// 		const initialWordCount = getExternalWordCount(plugin, content);
+// 		const initialWordCount = getLanguageBasedWordCount(plugin, content);
 // 		if (!plugin.pluginData.devices[plugin.deviceId]) {
 // 			plugin.pluginData.devices[plugin.deviceId] = {};
 // 		}

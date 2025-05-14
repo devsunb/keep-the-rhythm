@@ -1,6 +1,11 @@
-import { weeksToShow, weekdaysNames, monthNames, formatDate } from "../utils";
+import {
+	weeksToShow,
+	weekdaysNames,
+	monthNames,
+	formatDate,
+} from "../utils/utils";
 
-import { getDateForCell } from "../utils";
+import { getDateForCell } from "../utils/utils";
 import { db } from "@/db/db";
 
 export class HistoricDataCache {

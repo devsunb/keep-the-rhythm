@@ -1,82 +1,108 @@
+import { historicDataCache } from "@/core/historicDataCache";
 import {
-	HistoricDataCache,
-	historicDataCache,
-} from "@/store/historicDataCache";
-import { getDateForCell, getDayIndex } from "../utils";
-import { eventEmitter, EVENTS } from "../events";
-import {
+	getDateForCell,
 	weeksToShow,
 	weekdaysNames,
 	monthNames,
 	formatDate,
-	getLeafWithFile,
-	getApp,
-} from "../utils";
-import { db, getActivityByDate, getTotalValueByDate } from "@/db/db";
+} from "@/utils/utils";
+import { getTotalValueByDate } from "@/db/db";
 import React from "react";
-import { IntensityConfig, Unit } from "../types";
-import * as obsidian from "obsidian";
-import { Tooltip } from "@/components/Tooltip";
+import { Unit, HeatmapColorModes, HeatmapConfig } from "@/defs/types";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { useCtrlKey } from "../context/useModiferKey";
 import { moment as _moment } from "obsidian";
 import { HeatmapCell } from "./HeatmapCell";
-import { editorStore } from "@/store/editorStore";
+import { EVENTS, state } from "@/core/pluginState";
 
 interface HeatmapProps {
-	intensityLevels: IntensityConfig;
+	heatmapConfig: HeatmapConfig;
 }
 
 const getIntensityLevel = (
 	count: number,
-	intensityLevels: IntensityConfig,
+	heatmapConfig: HeatmapConfig,
 ): number => {
-	const { low, medium, high } = intensityLevels;
-	if (count <= 0) return 0;
-	if (count < low) return 1;
-	if (count < medium) return 2;
-	if (count < high) return 3;
+	if (
+		!heatmapConfig ||
+		!heatmapConfig.intensityStops ||
+		!heatmapConfig.intensityMode
+	) {
+		return 0;
+	}
+
+	const { low, medium, high } = heatmapConfig.intensityStops;
+
+	switch (heatmapConfig.intensityMode) {
+		/** Gradual is proportional to 100 to avoid decimals */
+		case HeatmapColorModes.GRADUAL:
+			if (count <= low) return 0;
+			if (count >= high) return 100;
+
+			const proportion = (count / high) * 100;
+
+			if (proportion > 100) return 100;
+			return proportion;
+			break;
+		case HeatmapColorModes.LIQUID:
+			if (count <= low) return 0;
+			if (count >= high) return 100;
+
+			const height = (count / high) * 100;
+
+			if (height > 100) return 100;
+			return height;
+			break;
+		case HeatmapColorModes.SOLID:
+			if (count >= low) {
+				return 4;
+			} else {
+				return 0;
+			}
+			break;
+		case HeatmapColorModes.STOPS:
+			if (count <= 0) return 0;
+			if (count < low) return 1;
+			if (count < medium) return 2;
+			if (count < high) return 3;
+			break;
+	}
+
 	return 4;
 };
 
 // HEATMAP
-export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
+export const Heatmap = ({ heatmapConfig }: HeatmapProps) => {
 	const [heatmapData, setHeatmapData] = React.useState<
 		Record<string, number>
 	>({});
 
 	const fetchHeatmapData = async () => {
 		const start = performance.now();
-		const today = formatDate(new Date());
 		let data: Record<string, number> = {};
 
-		if (historicDataCache.cacheExists) {
-			console.log("using existing data");
-			data = historicDataCache.historicalCache;
+		if (state.cacheExists) {
+			data = state.historicalCache;
 		} else {
-			console.log("refetching data");
-			data = await historicDataCache.resetCache();
+			data = await state.resetCache();
 		}
 
-		await getTotalValueByDate(today, Unit.WORD).then((todayEntry) => {
-			data[today] = todayEntry;
+		await getTotalValueByDate(state.today, Unit.WORD).then((todayEntry) => {
+			data[state.today] = todayEntry;
 		});
 
-		setHeatmapData({ ...historicDataCache.historicalCache });
+		setHeatmapData({ ...data });
 
 		const end = performance.now();
-		console.log(end - start);
 	};
 
 	React.useEffect(() => {
 		fetchHeatmapData();
-		eventEmitter.on(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
+		state.on(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
+
 		return () => {
-			eventEmitter.off(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
+			state.off(EVENTS.REFRESH_EVERYTHING, fetchHeatmapData);
 		};
 	}, []);
-
-	const today = new Date();
 
 	const getMonthLabels = () => {
 		const labels = [];
@@ -151,8 +177,11 @@ export const Heatmap = ({ intensityLevels }: HeatmapProps) => {
 													date={dateStr}
 													intensity={getIntensityLevel(
 														count,
-														intensityLevels,
+														heatmapConfig,
 													)}
+													mode={
+														heatmapConfig.intensityMode
+													}
 												/>
 											);
 										})}

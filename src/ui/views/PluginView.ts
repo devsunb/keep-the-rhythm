@@ -1,14 +1,14 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
-import KeepTheRhythm from "../main";
+import KeepTheRhythm from "../../main";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
-import { IntensityConfig } from "src/types";
-import { formatDate } from "@/utils";
+import { IntensityConfig } from "@/defs/types";
+import { formatDate } from "@/utils/utils";
 import { KTRView } from "../components/DataView";
 
 export const VIEW_TYPE = "keep-the-rhythm";
 
-export class PluginCoreUI extends ItemView {
+export class PluginView extends ItemView {
 	plugin: KeepTheRhythm;
 	root: Root | null;
 

@@ -1,7 +1,7 @@
-import { db, FileStats } from "./db/db";
+import { db, FileStats } from "../db/db";
 import { Vault } from "obsidian";
-import { getExternalWordCount } from "./wordCounting";
-import { Language } from "./types";
+import { getLanguageBasedWordCount } from "@/core/wordCounting";
+import { Language } from "../defs/types";
 
 // Iterates over all files and updates fileStats database
 // TODO: Research if it's more performant to update everything always or check if something changed first.
@@ -66,7 +66,7 @@ async function getFileWordAndCharCount(
 	fileContent: string,
 	enabledLanguages: Language[],
 ) {
-	const wordCount = getExternalWordCount(fileContent, enabledLanguages);
+	const wordCount = getLanguageBasedWordCount(fileContent, enabledLanguages);
 	const charCount = fileContent.length;
 	return [wordCount, charCount];
 }

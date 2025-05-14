@@ -1,7 +1,7 @@
-import { formatDate, mockMonthDailyActivity } from "@/utils";
+import { formatDate, mockMonthDailyActivity } from "@/utils/utils";
 import { DailyActivity } from "@/db/db";
 import React, { useEffect, useState } from "react";
-import { eventEmitter, EVENTS } from "@/events";
+import { EVENTS, state } from "@/core/pluginState";
 import { getActivityByDate } from "@/db/db";
 
 // import type { PluginData } from "../types";
@@ -18,6 +18,7 @@ export const Entries = ({}) => {
 
 	const handleEntriesRefresh = async () => {
 		const fetchedActivities = await getActivityByDate(todayStr);
+
 		setEntries(
 			fetchedActivities.filter((entry) => entry.wordsWritten != 0),
 		);
@@ -25,10 +26,10 @@ export const Entries = ({}) => {
 
 	useEffect(() => {
 		handleEntriesRefresh();
-		eventEmitter.on(EVENTS.REFRESH_EVERYTHING, handleEntriesRefresh);
+		state.on(EVENTS.REFRESH_EVERYTHING, handleEntriesRefresh);
 
 		return () => {
-			eventEmitter.off(EVENTS.REFRESH_EVERYTHING, handleEntriesRefresh);
+			state.off(EVENTS.REFRESH_EVERYTHING, handleEntriesRefresh);
 		};
 	}, []);
 

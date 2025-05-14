@@ -1,7 +1,7 @@
 // import { TFile } from "obsidian";
 // import { getCurrentDate } from "@/utils";
 // import { handleFileOpen } from "./fileOpen";
-// import { getExternalWordCount } from "@/wordCounting";
+// import { getLanguageBasedWordCount } from "@/wordCounting";
 // import WordCountPlugin from "main";
 
 // export async function handleFileModify(plugin: WordCountPlugin, file: TFile) {
@@ -23,7 +23,7 @@
 // 		}
 
 // 		const content = await plugin.app.vault.read(file);
-// 		const currentWordCount = getExternalWordCount(plugin, content);
+// 		const currentWordCount = getLanguageBasedWordCount(plugin, content);
 // 		const previousCount = dateData.files[file.path].current;
 // 		const delta = currentWordCount - previousCount;
 

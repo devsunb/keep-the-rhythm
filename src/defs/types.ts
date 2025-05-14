@@ -1,3 +1,5 @@
+import { DailyActivity, FileStats } from "@/db/db";
+
 export type Language =
 	| "LATIN"
 	| "CJK"
@@ -36,7 +38,8 @@ export enum Unit {
 
 export enum SlotOption {
 	CURRENT_FILE = "CURRENT_FILE",
-	THIS_DAY = "THIS_DAY",
+	CURRENT_STREAK = "CURRENT_STREAK",
+	THIS_DAY = "THIS_DAY", // Add progress bar towards daily goal
 	THIS_WEEK = "THIS_WEEK",
 	THIS_MONTH = "THIS_MONTH",
 	THIS_YEAR = "THIS_YEAR",
@@ -44,25 +47,35 @@ export enum SlotOption {
 	LAST_WEEK = "LAST_WEEK",
 	LAST_MONTH = "LAST_MONTH",
 	LAST_YEAR = "LAST_YEAR",
+	WHOLE_VAULT = "WHOLE_VAULT",
+	THIS_FOLDER = "THIS_FOLDER",
 }
 
-// export type SlotUnit = "CHAR" | "WORD";
+export enum HeatmapColorModes {
+	STOPS = "STOPS",
+	GRADUAL = "GRADUAL",
+	SOLID = "SOLID",
+	LIQUID = "LIQUID",
+}
+
 // export type SlotCalc = "TOTAL" | "AVG";
 
+// heatmap styling
+// rounded + hide week labels + hide month labels?
+
 export interface Settings {
+	dailyWritingGoal: number;
 	enabledLanguages: Language[];
-	intensityStops: IntensityConfig;
+	globalFilter?: string;
+	startOfTheWeek: "MONDAY" | "SUNDAY";
+	heatmapConfig: HeatmapConfig;
 	sidebarConfig: {
 		visibility: {
-			showOverview: boolean;
+			showSlots: boolean;
 			showHeatmap: boolean;
 			showEntries: boolean;
 		};
 		slots: SlotConfig[];
-	};
-	colors?: {
-		light: ColorConfig;
-		dark: ColorConfig;
 	};
 }
 
@@ -76,16 +89,64 @@ export interface SlotConfig {
 export interface PluginData {
 	settings: Settings;
 	stats?: {
-		fileStats: {};
-		dailyActivity: {};
+		currentStreak?: number;
+		highestStreak?: number;
+		highestStreakStartDate?: string;
+		highestStreakEndDate?: string;
+		fileStats: FileStats[];
+		dailyActivity: DailyActivity[];
 	};
 }
 
+export interface HeatmapConfig {
+	intensityMode: HeatmapColorModes;
+	roundCells: boolean;
+	hideMonthLabels: boolean;
+	hideWeekdayLabels: boolean;
+	intensityStops: {
+		low: number;
+		medium: number;
+		high: number;
+	};
+	colors?: {
+		light: ColorConfig;
+		dark: ColorConfig;
+	};
+}
 export const DEFAULT_SETTINGS: Settings = {
 	enabledLanguages: ["LATIN"],
+	dailyWritingGoal: 500,
+	startOfTheWeek: "SUNDAY",
+	heatmapConfig: {
+		roundCells: true,
+		hideMonthLabels: false,
+		hideWeekdayLabels: false,
+		intensityMode: HeatmapColorModes.GRADUAL,
+		intensityStops: {
+			low: 100,
+			medium: 500,
+			high: 1000,
+		},
+		colors: {
+			light: {
+				0: "#e0e0e0",
+				1: "#9be9a8",
+				2: "#6ad286",
+				3: "#2ebd54",
+				4: "#12a53e",
+			},
+			dark: {
+				0: "#ebedf015",
+				1: "#0e4429",
+				2: "#006d32",
+				3: "#26a641",
+				4: "#39d353",
+			},
+		},
+	},
 	sidebarConfig: {
 		visibility: {
-			showOverview: true,
+			showSlots: true,
 			showEntries: true,
 			showHeatmap: true,
 		},
@@ -109,26 +170,5 @@ export const DEFAULT_SETTINGS: Settings = {
 				calc: "AVG",
 			},
 		],
-	},
-	intensityStops: {
-		low: 100,
-		medium: 500,
-		high: 1000,
-	},
-	colors: {
-		light: {
-			0: "#e0e0e0",
-			1: "#9be9a8",
-			2: "#6ad286",
-			3: "#2ebd54",
-			4: "#12a53e",
-		},
-		dark: {
-			0: "#ebedf015",
-			1: "#0e4429",
-			2: "#006d32",
-			3: "#26a641",
-			4: "#39d353",
-		},
 	},
 };

@@ -1,15 +1,6 @@
-import { Language } from "./types";
-import type WordCountPlugin from "./main";
+import { Language } from "@/defs/types";
 
-export function getExternalWordCount(
-	text: string,
-	enabledLanguages: Language[],
-) {
-	const regex: RegExp = createRegex(enabledLanguages);
-	return getWordCount(text, regex);
-}
-
-const unicodeRanges = {
+const UNICODE_RANGES = {
 	LATIN: "\\u0041-\\u007A\\u00A0-\\u024F",
 	CJK: "\\u4E00-\\u9FFF\\u3400-\\u4DBF",
 	JAPANESE: "\\u3041-\\u309F\\u30A0-\\u30FF",
@@ -45,7 +36,7 @@ export function createRegex(enabledLanguages: Language[]): RegExp {
 
 	if (charBasedScripts.length > 0) {
 		const ranges = charBasedScripts
-			.map((script) => unicodeRanges[script])
+			.map((script) => UNICODE_RANGES[script])
 			.join("");
 		patterns.push(`[${ranges}]`);
 	}
@@ -55,7 +46,7 @@ export function createRegex(enabledLanguages: Language[]): RegExp {
 	);
 	if (wordBasedScripts.length > 0) {
 		const ranges = wordBasedScripts
-			.map((script) => unicodeRanges[script])
+			.map((script) => UNICODE_RANGES[script])
 			.join("");
 
 		patterns.push(`\\d+(?:[.,]\\d+)*`);
@@ -63,4 +54,12 @@ export function createRegex(enabledLanguages: Language[]): RegExp {
 	}
 
 	return new RegExp(patterns.join("|"), "gu");
+}
+
+export function getLanguageBasedWordCount(
+	text: string,
+	enabledLanguages: Language[],
+) {
+	const regex: RegExp = createRegex(enabledLanguages);
+	return getWordCount(text, regex);
 }

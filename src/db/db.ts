@@ -1,5 +1,5 @@
 import Dexie from "dexie";
-import { Unit } from "../types";
+import { Unit } from "../defs/types";
 import { start } from "repl";
 
 export interface FileStats {
@@ -21,9 +21,14 @@ export interface DailyActivity {
 	filePath: string;
 	wordCountStart: number;
 	charCountStart: number;
-	wordsWritten: number;
-	charsWritten: number;
-	created: boolean;
+	changes: {
+		[timeKey: string]: EditChange;
+	};
+}
+
+export interface EditChange {
+	w: number;
+	c: number;
 }
 
 class KTRDatabase extends Dexie {
@@ -46,6 +51,13 @@ export async function getActivityByDate(date: string) {
 	return await db.dailyActivity.where("date").equals(date).toArray();
 }
 
+export async function getActivtityForFile(date: string, filePath: string) {
+	return await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([date, filePath])
+		.first();
+}
+
 export async function getTotalValueByDate(date: string, unit: Unit) {
 	const activities = await db.dailyActivity
 		.where("date")
@@ -56,16 +68,28 @@ export async function getTotalValueByDate(date: string, unit: Unit) {
 
 	let value = 0;
 	if (unit == Unit.WORD) {
-		value = activities.reduce(
-			(sum, activity) => sum + activity.wordsWritten,
-			0,
-		);
+		value = activities.reduce((sum, activity) => {
+			return (
+				sum +
+				Object.values(activity.changes).reduce(
+					(s, change) => s + change.w,
+					0,
+				)
+			);
+		}, 0);
 	} else if (unit == Unit.CHAR) {
-		value = activities.reduce(
-			(sum, activity) => sum + activity.charsWritten,
-			0,
-		);
+		value = activities.reduce((sum, activity) => {
+			return (
+				sum +
+				Object.values(activity.changes).reduce(
+					(s, change) => s + change.c,
+					0,
+				)
+			);
+		}, 0);
 	}
+	// console.log("Called calculation", Date.now() + " " + value);
+
 	return value;
 }
 export async function getTotalValueInDateRange(
@@ -80,43 +104,53 @@ export async function getTotalValueInDateRange(
 
 	let value = 0;
 	if (unit == Unit.WORD) {
-		value = activities.reduce(
-			(sum, activity) => sum + activity.wordsWritten,
-			0,
-		);
+		value = activities.reduce((sum, activity) => {
+			return (
+				sum +
+				Object.values(activity.changes).reduce(
+					(s, change) => s + change.w,
+					0,
+				)
+			);
+		}, 0);
 	} else if (unit == Unit.CHAR) {
-		value = activities.reduce(
-			(sum, activity) => sum + activity.charsWritten,
-			0,
-		);
+		value = activities.reduce((sum, activity) => {
+			return (
+				sum +
+				Object.values(activity.changes).reduce(
+					(s, change) => s + change.c,
+					0,
+				)
+			);
+		}, 0);
 	}
 	return value;
 }
 
 export async function removeDuplicatedDailyEntries() {
-	// Get all daily activity entries
 	const allEntries = await db.dailyActivity.toArray();
 
 	// Create a map to track unique entries by date+filePath
 	const uniqueEntries = new Map();
 	const duplicateIds = [];
 
-	// Find duplicates
 	for (const entry of allEntries) {
 		const key = `${entry.date}-${entry.filePath}`;
 
 		if (!uniqueEntries.has(key)) {
-			// First occurrence of this date+filePath combination
 			uniqueEntries.set(key, entry);
 		} else {
-			// This is a duplicate - merge data into the first entry
 			const existingEntry = uniqueEntries.get(key);
 
-			// Update counts in the first entry (optional - decide if you want to sum or keep max values)
-			existingEntry.wordsWritten += entry.wordsWritten;
-			existingEntry.charsWritten += entry.charsWritten;
+			for (const [key, change] of Object.entries(entry.changes)) {
+				if (existingEntry.changes[key]) {
+					existingEntry.changes[key].w += change.w;
+					existingEntry.changes[key].c += change.c;
+				} else {
+					existingEntry.changes[key] = { ...change };
+				}
+			}
 
-			// Add this duplicate's ID to the list for deletion
 			if (entry.id !== undefined) {
 				duplicateIds.push(entry.id);
 			}
@@ -127,8 +161,7 @@ export async function removeDuplicatedDailyEntries() {
 	for (const entry of uniqueEntries.values()) {
 		if (entry.id !== undefined) {
 			await db.dailyActivity.update(entry.id, {
-				wordsWritten: entry.wordsWritten,
-				charsWritten: entry.charsWritten,
+				changes: entry.changes,
 			});
 		}
 	}
@@ -143,4 +176,35 @@ export async function removeDuplicatedDailyEntries() {
 		uniqueEntries: uniqueEntries.size,
 		duplicatesRemoved: duplicateIds.length,
 	};
+}
+
+export async function getWordAndCharCountByTimeKey(date: string) {
+	const activities = await db.dailyActivity
+		.where("date")
+		.equals(date)
+		.toArray();
+
+	const timeKeyTotals: {
+		[timeKey: string]: { totalWords: number; totalChars: number };
+	} = {};
+
+	for (const activity of activities) {
+		for (const [timeKey, change] of Object.entries(activity.changes)) {
+			if (!timeKeyTotals[timeKey]) {
+				timeKeyTotals[timeKey] = { totalWords: 0, totalChars: 0 };
+			}
+			timeKeyTotals[timeKey].totalWords += change.w;
+			timeKeyTotals[timeKey].totalChars += change.c;
+		}
+	}
+
+	const result = Object.entries(timeKeyTotals)
+		.map(([timeKey, { totalWords, totalChars }]) => ({
+			timeKey,
+			totalWords,
+			totalChars,
+		}))
+		.sort((a, b) => a.timeKey.localeCompare(b.timeKey));
+
+	return result;
 }
