@@ -5,7 +5,6 @@ import type { PluginData } from "@/defs/types";
 import KeepTheRhythm from "@/main";
 import { Heatmap } from "./Heatmap";
 import { SlotWrapper } from "./SlotWrapper";
-import { Entries } from "./Entries";
 import { EVENTS, state } from "@/core/pluginState";
 
 interface KTRView {
@@ -17,6 +16,17 @@ interface KTRView {
 }
 
 export const KTRView = ({ plugin }: KTRView) => {
+	const [roundedCells, setRoundedCells] = useState(
+		plugin.data.settings.heatmapConfig.roundCells,
+	);
+
+	const [hideMonthLabels, setHideMonthLabels] = useState(
+		plugin.data.settings.heatmapConfig.hideMonthLabels,
+	);
+
+	const [hideWeekdayLabels, setHideWeekdayLabels] = useState(
+		plugin.data.settings.heatmapConfig.hideWeekdayLabels,
+	);
 	const [slots, setSlots] = useState(
 		plugin.data.settings.sidebarConfig.slots,
 	);
@@ -30,22 +40,6 @@ export const KTRView = ({ plugin }: KTRView) => {
 		plugin.data.settings.sidebarConfig.visibility.showSlots,
 	);
 
-	// const [currentFile, setCurrentFile] = useState<string>("");
-	// const handleRefresh = () => {
-	// 	if (state.currentActivity)
-	// 		setCurrentFile(state.currentActivity.filePath);
-	// };
-
-	// useEffect(() => {
-	// 	handleRefresh();
-
-	// 	eventEmitter.on(EVENTS.REFRESH_EVERYTHING, handleRefresh);
-
-	// 	return () => {
-	// 		eventEmitter.off(EVENTS.REFRESH_EVERYTHING, handleRefresh);
-	// 	};
-	// });
-
 	const updateData = () => {
 		setSlots(plugin.data.settings.sidebarConfig.slots);
 		setShowHeatmap(
@@ -55,6 +49,11 @@ export const KTRView = ({ plugin }: KTRView) => {
 			plugin.data.settings.sidebarConfig.visibility.showEntries,
 		);
 		setShowSlots(plugin.data.settings.sidebarConfig.visibility.showSlots);
+		setRoundedCells(plugin.data.settings.heatmapConfig.roundCells);
+		setHideMonthLabels(plugin.data.settings.heatmapConfig.hideMonthLabels);
+		setHideWeekdayLabels(
+			plugin.data.settings.heatmapConfig.hideWeekdayLabels,
+		);
 	};
 
 	useEffect(() => {
@@ -68,18 +67,24 @@ export const KTRView = ({ plugin }: KTRView) => {
 	}, []);
 
 	return (
-		<div className="sidebar-view">
+		<div
+			className={`
+				sideBarView 
+				${roundedCells ? "" : "cells-not-rounded"}
+				${hideMonthLabels ? "hide-month-labels" : ""}
+				${hideWeekdayLabels ? "hide-weekday-labels" : ""}
+				`}
+		>
 			<KeyProvider>
 				{showSlots && <SlotWrapper slots={slots} />}
-				{/* <CustomChart
-						intensityLevels={[0, 1, 3, 4, 5]}
-					></CustomChart> */}
 				{showHeatmap && (
 					<Heatmap
 						heatmapConfig={plugin.data.settings.heatmapConfig}
+						query={""}
+						amountOfWeeks={52}
 					/>
 				)}
-				{showEntries && <Entries />}
+				{/* {showEntries && <Entries />} */}
 			</KeyProvider>
 		</div>
 	);

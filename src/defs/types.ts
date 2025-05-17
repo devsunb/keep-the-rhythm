@@ -1,4 +1,4 @@
-import { DailyActivity, FileStats } from "@/db/db";
+import { DailyActivity, FileStats } from "@/db/types";
 
 export type Language =
 	| "LATIN"

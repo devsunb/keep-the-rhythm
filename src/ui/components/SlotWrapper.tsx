@@ -1,7 +1,8 @@
+import { Notice } from "obsidian";
 import { v4 as uuidv4 } from "uuid";
 import { useAltKey } from "@/utils/useModiferKey";
 import React from "react";
-import { formatDate } from "@/utils/utils";
+import { formatDate } from "@/utils/dateUtils";
 import { SlotConfig, SlotOption, Unit } from "@/defs/types";
 import { Slot } from "./Slot";
 import { plugins } from "chart.js";
@@ -73,6 +74,10 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 	};
 
 	const handleAddClick = () => {
+		if (slotsState && slotsState?.length >= 10) {
+			new Notice("Maximum of 10 slots per view! (at least for now)");
+			return;
+		}
 		const newSlot: SlotConfig = {
 			index: state.plugin.data.settings.sidebarConfig.slots.length,
 			option: SlotOption.CURRENT_FILE,
@@ -89,20 +94,16 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 			state.plugin.data.settings.sidebarConfig.slots = updatedSlots;
 		}
 
+		// Call quietSave to persist changes
+		state.plugin.quietSave();
+
 		// Update state with new UUID for the new slot
 		setSlotsState([...(slotsState || []), { ...newSlot, uuid: uuidv4() }]);
 	};
 
 	return (
-		<div className="slot-wrapper">
-			{isModifierHeld && (
-				<div className="slot-wrapper__hide-item">
-					<div className="slot-wrapper__hide-border">
-						HIDE OVERVIEW
-					</div>
-				</div>
-			)}
-			<TransitionGroup className="slot-list">
+		<div className="slot__section">
+			<TransitionGroup className="slot__list">
 				{slotsState?.map((slot, i) => (
 					<CSSTransition
 						key={slot.uuid}
@@ -120,68 +121,13 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 					</CSSTransition>
 				))}
 			</TransitionGroup>
-			<button onClick={handleAddClick}>+ ADD NEW SLOT</button>
-		</div>
-	);
-	// const todayStr = formatDate(new Date());
-
-	// // const getWordCount = (startDate: Date, endDate: Date) => {
-	// // 	// let total = 0;
-	// // 	// const start = formatDate(startDate);
-	// // 	// const end = formatDate(endDate);
-
-	// // 	// Object.entries(data).forEach(([date, dayData]) => {
-	// // 	// 	if (date >= start && date <= end) {
-	// // 	// 		total += dayData.totalDelta;
-	// // 	// 	}
-	// // 	// });
-	// // 	// return total;
-	// // };
-
-	// const getWeekStart = (date: Date): Date => {
-	// 	const result = new Date(date);
-	// 	const day = result.getDay();
-	// 	const diff = result.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
-	// 	result.setDate(diff);
-	// 	return result;
-	// };
-
-	// const todayCount = data[todayStr]?.totalDelta || 0;
-
-	// const weekStart = new Date(today);
-	// const daysSinceMonday = today.getDay() === 0 ? 6 : today.getDay() - 1;
-	// weekStart.setDate(today.getDate() - daysSinceMonday);
-
-	// const weekCount = getWordCount(weekStart, today);
-
-	// const yearStart = new Date(today.getFullYear(), 0, 1);
-	// const yearCount = getWordCount(yearStart, today);
-
-	return (
-		<div className="stats-SlotWrapper">
-			{/* <div className="stats-grid">
-				<div className="stat-card">
-					<div className="stat-label">Today</div>
-					<div className="stat-value">
-						{todayCount.toLocaleString()}
-						<span className="stat-unit"> words</span>
-					</div>
-				</div>
-				<div className="stat-card">
-					<div className="stat-label">This Week</div>
-					<div className="stat-value">
-						{weekCount.toLocaleString()}
-						<span className="stat-unit"> words</span>
-					</div>
-				</div>
-				<div className="stat-card">
-					<div className="stat-label">This Year</div>
-					<div className="stat-value">
-						{yearCount.toLocaleString()}
-						<span className="stat-unit"> words</span>
-					</div>
-				</div>
-			</div> */}
+			<button
+				className="KTR-add-slot-button"
+				onClick={handleAddClick}
+				disabled={slotsState && slotsState?.length >= 10 ? true : false}
+			>
+				+ ADD NEW SLOT
+			</button>
 		</div>
 	);
 };

@@ -1,9 +1,11 @@
 import { EVENTS, state } from "./pluginState";
 import { TFile, Editor } from "obsidian";
-import { DailyActivity, db, TimeEntry } from "../db/db";
+import { db } from "../db/db";
+import { DailyActivity, TimeEntry } from "@/db/types";
 import KeepTheRhythm from "../main";
 import { getLanguageBasedWordCount } from "@/core/wordCounting";
-import { formatDate, floorMomentToFive } from "../utils/utils";
+import { formatDate } from "@/utils/dateUtils";
+import { floorMomentToFive } from "@/utils/dateUtils";
 import { moment as _moment } from "obsidian";
 import { emit } from "process";
 
@@ -90,6 +92,7 @@ export async function handleEditorChange(
 
 	if (!existingEntry) {
 		// No entry yet for this timeKey, so push a new one
+		console.log("no entry");
 		changes.push({
 			timeKey: currentTimeKey,
 			w: wordsAdded || 0,
@@ -97,16 +100,20 @@ export async function handleEditorChange(
 		});
 	} else {
 		// Entry exists, so update the word and char count
+		console.log("using existing entry");
 		existingEntry.w += wordsAdded;
 		existingEntry.c += charsAdded;
 	}
 
+	// console.log(wordsAdded, charsAdded);
+	console.log(existingEntry);
 	// TODO: update to only refresh today's data
 	state.emit(EVENTS.REFRESH_EVERYTHING);
 
 	/** Debounces updates to the DB, which only happens when
 	 *  the user stops editing the page for 200ms. */
 	if (dbUpdateTimeout) clearTimeout(dbUpdateTimeout);
+
 	dbUpdateTimeout = setTimeout(async () => {
 		await flushChangesToDB(state.currentActivity);
 	}, DEBOUNCE_TIME);
@@ -254,7 +261,6 @@ export async function handleFileOpen(file: TFile) {
 	}
 
 	if (entry) state.setCurrentActivity(entry);
-	state.emit(EVENTS.REFRESH_EVERYTHING);
 }
 
 /**
@@ -282,8 +288,8 @@ async function flushChangesToDB(activity: DailyActivity) {
 
 			for (const entry of currentChanges) {
 				if (mergedMap[entry.timeKey]) {
-					mergedMap[entry.timeKey].w += entry.w;
-					mergedMap[entry.timeKey].c += entry.c;
+					mergedMap[entry.timeKey].w = entry.w;
+					mergedMap[entry.timeKey].c = entry.c;
 				} else {
 					mergedMap[entry.timeKey] = { ...entry };
 				}

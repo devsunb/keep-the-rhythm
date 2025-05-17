@@ -6,9 +6,9 @@ import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { Tooltip } from "./Tooltip";
 import { setIcon } from "obsidian";
 import React from "react";
-import { getSlotLabel } from "@/defs/texts";
+import { getSlotLabel } from "../texts";
 import { useState, useEffect, useRef } from "react";
-import { getTotalValueByDate, getTotalValueInDateRange } from "@/db/db";
+import { getTotalValueByDate, getTotalValueInDateRange } from "@/db/queries";
 import {
 	formatDate,
 	getLastSevenDays,
@@ -18,7 +18,7 @@ import {
 	getStartOfMonth,
 	getLastDay,
 	getStartOfYear,
-} from "@/utils/utils";
+} from "@/utils/dateUtils";
 import { EVENTS, state } from "@/core/pluginState";
 
 export const Slot = ({
@@ -110,15 +110,14 @@ export const Slot = ({
 
 	useEffect(() => {
 		if (calcButtonRef.current) {
-			const icon = calcType == "TOTAL" ? "circle-slash-2" : "sigma";
+			const icon = calcType == "TOTAL" ? "chart-spline" : "sigma";
 			setIcon(calcButtonRef.current, icon);
 		}
-	}, [calcType]);
+	}, [calcType, optionType]);
 
 	useEffect(() => {
 		if (calcButtonRef.current) {
-			const icon =
-				calcType == "TOTAL" ? "circle-slash-2" : "circle-slash-2";
+			const icon = calcType == "TOTAL" ? "chart-spline" : "sigma";
 			setIcon(calcButtonRef.current, icon);
 		}
 		if (unitButtonRef.current) {
@@ -284,15 +283,15 @@ export const Slot = ({
 
 	return (
 		<div className="slot">
-			<div id="customID" className="slot__label">
-				<div>{getSlotLabel(optionType)}</div>
+			<div id="customID" className="slot__header">
+				<div className="slot__label">{getSlotLabel(optionType)}</div>
 				<div className="slot__buttons">
 					<RadixTooltip.Provider delayDuration={200}>
 						{showCalcType && (
 							<Tooltip
 								content={
 									calcType == "TOTAL"
-										? "Show average"
+										? "Show daily average"
 										: "Show total"
 								}
 							>
@@ -315,7 +314,7 @@ export const Slot = ({
 								}}
 							></button>
 						</Tooltip>
-						<Tooltip content="Change Slot Type">
+						<Tooltip content="Change Type">
 							<button
 								className="KTR-min-button"
 								ref={typeButtonRef}
@@ -324,7 +323,7 @@ export const Slot = ({
 								}}
 							></button>
 						</Tooltip>
-						<Tooltip content="Delete Slot">
+						<Tooltip content="Delete">
 							<button
 								className="KTR-min-button"
 								ref={deleteButtonRef}
@@ -336,15 +335,15 @@ export const Slot = ({
 					</RadixTooltip.Provider>
 				</div>
 			</div>
-			<div className="slot__info">
+			<div className="slot__data">
 				<div className="slot__value">{value.toLocaleString()}</div>
 				<div className="slot__unit">
-					{unitType.toLowerCase() +
-						"s" +
-						(showCalcType && calcType == "AVG" ? " (avg.)" : "")}
+					{unitType.toLowerCase() + "s"}
+					<span className="slot__unit-avg">
+						{showCalcType && calcType == "AVG" ? "/day" : ""}
+					</span>
 				</div>
 			</div>
-			{/* {showChart && <DailyActivityChart date={state.today} />} */}
 		</div>
 	);
 };

@@ -172,9 +172,61 @@ export class SettingsTab extends PluginSettingTab {
 						this.plugin.data.settings.sidebarConfig.visibility.showHeatmap =
 							value;
 						this.plugin.updateAndSaveEverything();
+						this.display();
 					}),
 			);
 
+		if (this.plugin.data.settings.sidebarConfig.visibility.showHeatmap) {
+			new Setting(containerEl)
+				.setName("Rounded Cells")
+				.setClass("KTR-sub-config")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(
+							this.plugin.data.settings.heatmapConfig.roundCells,
+						)
+						.onChange(async (value) => {
+							this.plugin.data.settings.heatmapConfig.roundCells =
+								value;
+							await this.plugin.updateAndSaveEverything();
+							this.display();
+						}),
+				);
+
+			new Setting(containerEl)
+				.setName("Hide Month Labels")
+				.setClass("KTR-sub-config")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(
+							this.plugin.data.settings.heatmapConfig
+								.hideMonthLabels,
+						)
+						.onChange(async (value) => {
+							this.plugin.data.settings.heatmapConfig.hideMonthLabels =
+								value;
+							await this.plugin.updateAndSaveEverything();
+							this.display();
+						}),
+				);
+
+			new Setting(containerEl)
+				.setName("Hide Weekday Labels")
+				.setClass("KTR-sub-config")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(
+							this.plugin.data.settings.heatmapConfig
+								.hideWeekdayLabels,
+						)
+						.onChange(async (value) => {
+							this.plugin.data.settings.heatmapConfig.hideWeekdayLabels =
+								value;
+							await this.plugin.updateAndSaveEverything();
+							this.display();
+						}),
+				);
+		}
 		// Sidebar Filters?
 		// Slot settings
 
@@ -191,26 +243,38 @@ export class SettingsTab extends PluginSettingTab {
 				// console.log("clicked header");
 			});
 
+		// 	new Setting(containerEl)
+		// 		.setName("Show overview")
+		// 		.setDesc("Display the overview section in the word count heatmap")
+		// 		.addToggle((toggle) =>
+		// 			toggle
+		// 				.setValue(this.plugin.settings.showOverview)
+		// 				.onChange(async (value) => {
+		// 					this.plugin.settings.showOverview = value;
+		// 					this.options.onShowOverviewChange(value);
+		// 				}),
+		// 		);
+
 		/**
 		 * Stops vs. Gradual colors
 		 * */
 
 		// I NEED TO ADD THE CSS COLORS HERE, THEY DON'T EXIST IN THIS SCOPE FOR SOME REASON
-		const previewContainer = containerEl.createDiv({
-			cls: "heatmap-preview",
-		});
+		// const previewContainer = containerEl.createDiv({
+		// 	cls: "heatmap-preview",
+		// });
 
-		const root = ReactDOM.createRoot(previewContainer);
-		root.render(
-			React.createElement(Heatmap, {
-				heatmapConfig: this.plugin.data.settings.heatmapConfig,
-			}),
-		);
+		// const root = ReactDOM.createRoot(previewContainer);
+		// root.render(
+		// 	React.createElement(Heatmap, {
+		// 		heatmapConfig: this.plugin.data.settings.heatmapConfig,
+		// 	}),
+		// );
 
 		new Setting(containerEl)
 			.setName("Coloring Mode")
 			.setDesc("Choose the heatmap coloring method.")
-			.setClass("ktr-first")
+
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOptions({ ...HeatmapColorModes })

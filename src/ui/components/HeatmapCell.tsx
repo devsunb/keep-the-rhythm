@@ -1,10 +1,6 @@
-import {
-	weeksToShow,
-	weekdaysNames,
-	monthNames,
-	formatDate,
-	getLeafWithFile,
-} from "../../utils/utils";
+import { getLeafWithFile } from "../../utils/utils";
+import { formatDate } from "@/utils/dateUtils";
+import { weekdaysNames, monthNames } from "../texts";
 import { db } from "../../db/db";
 import React from "react";
 import { HeatmapColorModes, IntensityConfig } from "../../defs/types";
@@ -85,7 +81,6 @@ export const HeatmapCell = ({
 	}
 	const isTodayClass =
 		date == formatDate(new Date()) ? "heatmap-square-today" : "";
-
 	const classes = `heatmap-square ${intensityClass} ${isTodayClass}`;
 
 	const style = {
@@ -97,7 +92,6 @@ export const HeatmapCell = ({
 			content={
 				<>
 					<strong>{date}</strong>
-					<div>{count.toLocaleString()} words</div>
 					<div>{count.toLocaleString()} words</div>
 				</>
 			}

@@ -1,3 +1,4 @@
+import { parseQueryToJSEP } from "./core/query";
 import {
 	Plugin,
 	TFile,
@@ -12,7 +13,9 @@ import { createRoot } from "react-dom/client";
 
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
 import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "@/defs/types";
-import { db, removeDuplicatedDailyEntries } from "@/db/db";
+import { db } from "@/db/db";
+import { mockMonthDailyActivity } from "./utils/devUtils";
+import { removeDuplicatedDailyEntries } from "./db/queries";
 import { EVENTS, state } from "@/core/pluginState";
 import { SettingsTab } from "@/ui/views/SettingsTab";
 import { Heatmap } from "@/ui/components/Heatmap";
@@ -124,18 +127,27 @@ export default class KeepTheRhythm extends Plugin {
 				return;
 			}
 
-			const query = source.trim();
-			// console.log(query);
-
-			// TODO: IMPLEMENT QUERYING LANGUAGE PARSING
+			let query;
+			if (source.trim() !== "") {
+				query = parseQueryToJSEP(source.trim());
+			}
 
 			const container = el.createDiv("heatmap-codeblock");
 			const root = createRoot(container);
 			this.codeBlockRoots.set(el, { root, ctx, source });
 
+			//TODO !!!!!!
+			// This should render a DataView instance
+			// The data view instance should recieve a dataset as prop, I think... Or the filter at leasat
+			// Components also need to recieve this filter so they can properly filter their data sets if there is a filter
+
+			// maybe i should make different code blocks for ENTRIES, HEATMAP and SLOTS
+			// this would make it easier to just pass the filter to each one of them, rather than refactoring DataView.tsx
+
 			root.render(
 				React.createElement(Heatmap, {
 					heatmapConfig: this.data.settings.heatmapConfig,
+					query: query,
 				}),
 			);
 
@@ -255,7 +267,7 @@ export default class KeepTheRhythm extends Plugin {
 			id: "mock-data",
 			name: "Mock data for last month",
 			callback: () => {
-				utils.mockMonthDailyActivity();
+				mockMonthDailyActivity();
 				state.emit(EVENTS.REFRESH_EVERYTHING);
 			},
 		});
@@ -266,6 +278,7 @@ export default class KeepTheRhythm extends Plugin {
 			callback: () => {
 				db.dailyActivity.clear();
 				db.fileStats.clear();
+				this.updateAndSaveEverything();
 				// emit refresh
 			},
 		});

@@ -1,5 +1,5 @@
-import { weeksToShow, formatDate, getDateForCell } from "../utils/utils";
-import { DailyActivity, db } from "@/db/db";
+import { formatDate } from "@/utils/dateUtils";
+import { DailyActivity } from "@/db/types";
 import KeepTheRhythm from "@/main";
 import { App } from "obsidian";
 
@@ -63,7 +63,8 @@ export class PluginState {
 	}
 	setCurrentActivity(acitvity: DailyActivity) {
 		this._currentFileActivity = acitvity;
-		this.emit(EVENTS.FILE_CHANGED);
+		// this.emit(EVENTS.FILE_CHANGED);
+		state.emit(EVENTS.REFRESH_EVERYTHING);
 	}
 
 	setToday(newDay: string) {
@@ -88,34 +89,36 @@ export class PluginState {
 	}
 
 	public async resetCache() {
-		const requiredDates = new Set<string>();
-
-		for (let week = 0; week < weeksToShow; week++) {
-			for (let day = 0; day < 7; day++) {
-				const date = getDateForCell(week, day);
-				requiredDates.add(formatDate(date));
-			}
-		}
-
-		const results = await db.dailyActivity
-			.where("date")
-			.anyOf([...requiredDates])
-			.toArray();
-
-		const dateMap: Record<string, number> = {};
-		for (const entry of results) {
-			dateMap[entry.date] =
-				(dateMap[entry.date] || 0) +
-				Object.values(entry.changes).reduce(
-					(s, change) => s + change.w,
-					0,
-				);
-		}
-
-		this._cache = dateMap;
-		this._cacheIsSet = true;
-		return dateMap;
+		console.log("no cache anymore baby!");
 	}
+	// 	const requiredDates = new Set<string>();
+
+	// 	for (let week = 0; week < weeksToShow; week++) {
+	// 		for (let day = 0; day < 7; day++) {
+	// 			const date = getDateForCell(week, day);
+	// 			requiredDates.add(formatDate(date));
+	// 		}
+	// 	}
+
+	// 	const results = await db.dailyActivity
+	// 		.where("date")
+	// 		.anyOf([...requiredDates])
+	// 		.toArray();
+
+	// 	const dateMap: Record<string, number> = {};
+	// 	for (const entry of results) {
+	// 		dateMap[entry.date] =
+	// 			(dateMap[entry.date] || 0) +
+	// 			Object.values(entry.changes).reduce(
+	// 				(s, change) => s + change.w,
+	// 				0,
+	// 			);
+	// 	}
+
+	// 	this._cache = dateMap;
+	// 	this._cacheIsSet = true;
+	// 	return dateMap;
+	// }
 }
 
 export const state = new PluginState();
