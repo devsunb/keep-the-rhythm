@@ -1,0 +1,33 @@
+.vertical-tab-content:has(.ktr-first) {
+	hr {
+		margin: 16px 0;
+	}
+}
+
+.KTR-sub-config {
+	margin-left: 8px;
+	border: unset !important;
+
+	// &::before {
+	// 	content: "";
+	// 	height: 8px;
+	// 	width: 12px;
+	// 	margin-right: 8px;
+	// 	border-bottom: 1px solid gray;
+	// 	border-left: 1px solid gray;
+	// 	transform: translate(0, -20%);
+	// }
+}
+
+.ktr__threshold-inputs {
+	.setting-item-control {
+		max-width: 320px;
+	}
+	input {
+		width: 100%;
+	}
+}
+
+.setting-item.ktr-first {
+	border-top: unset;
+}

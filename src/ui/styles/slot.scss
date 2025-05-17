@@ -1,0 +1,166 @@
+.slot {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+
+	width: 100%;
+	max-width: 100%;
+	padding: var(--size-4-2);
+	border-radius: var(--radius-m);
+
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+
+	&:hover .slot__buttons {
+		opacity: 1;
+		width: fit-content;
+	}
+	&:not(:first-child) {
+		margin-top: 4px;
+	}
+}
+
+.slot__section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+}
+
+.slot__list {
+	box-sizing: border-box;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+.slot__header {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+
+	display: flex;
+	justify-content: space-between;
+
+	gap: 8px;
+	margin-bottom: -2px;
+	overflow: hidden;
+
+	.slot__label {
+		text-wrap: nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+}
+
+.slot__data {
+	display: flex;
+	gap: 4px;
+}
+
+.slot__buttons {
+	display: flex;
+	width: 0;
+	opacity: 0;
+	gap: 6px;
+
+	transition: ease 200ms;
+	transition-property: opacity;
+
+	button {
+		all: unset;
+		cursor: pointer;
+		transition: 200ms ease;
+		transition-property: opacity;
+
+		&:hover {
+			color: var(--text-normal);
+		}
+	}
+
+	button:last-child {
+		color: var(--text-error);
+	}
+}
+
+.slot__value {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+	font-variant-numeric: tabular-nums;
+}
+
+.slot__unit {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	color: var(--text-muted);
+}
+
+.slot__unit-avg {
+	opacity: 0.5;
+	padding-left: 2px;
+	font-size: var(--font-smaller);
+}
+
+/** 
+* SLOT ANIMATIONS
+*/
+.slot-fade-enter-active {
+	overflow: hidden;
+	animation: fade-in 500ms forwards;
+	animation-timing-function: var(--spring-easing);
+}
+
+.slot-fade-exit-active {
+	overflow: hidden;
+	animation: fade-out 500ms forwards;
+	animation-timing-function: var(--spring-easing);
+}
+
+.slot-fade-exit-done {
+	opacity: 0;
+	max-height: 0px;
+	padding-top: 0px;
+	padding-bottom: 0px;
+	filter: blur(8px);
+}
+
+/**
+* BUTTONS
+*/
+
+button.KTR-add-slot-button {
+	box-shadow: unset;
+	cursor: pointer;
+
+	opacity: 0;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+
+	border-radius: var(--radius-m);
+	margin-bottom: 0;
+	padding: 0;
+	height: 8px;
+	width: 100%;
+
+	transition-property: opacity, height, margin;
+	transition-duration: 400ms;
+	transition-timing-function: var(--spring-easing);
+
+	&:hover {
+		opacity: 1;
+		height: 28px;
+		margin-top: 2px;
+		margin-bottom: 2px;
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+	}
+}
+
+.stat-unit {
+	color: var(--text-faint);
+}
