@@ -1,5 +1,10 @@
 import { DailyActivity, FileStats } from "@/db/types";
 
+export enum CalculationType {
+	TOTAL = "TOTAL",
+	AVG = "AVG",
+}
+
 export type Language =
 	| "LATIN"
 	| "CJK"
@@ -36,14 +41,14 @@ export enum Unit {
 	WORD = "WORD",
 }
 
-export enum SlotOption {
+export enum TargetCount {
 	CURRENT_FILE = "CURRENT_FILE",
 	CURRENT_STREAK = "CURRENT_STREAK", // not done yet
-	THIS_DAY = "THIS_DAY", // Add progress bar towards daily goal
-	THIS_WEEK = "THIS_WEEK",
-	THIS_MONTH = "THIS_MONTH",
-	THIS_YEAR = "THIS_YEAR",
-	LAST_DAY = "LAST_DAY", // not done yet (24hours)
+	CURRENT_DAY = "CURRENT_DAY", // Add progress bar towards daily goal
+	CURRENT_WEEK = "CURRENT_WEEK",
+	CURRENT_MONTH = "CURRENT_MONTH",
+	CURRENT_YEAR = "CURRENT_YEAR",
+	LAST_DAY = "LAST_DAY",
 	LAST_WEEK = "LAST_WEEK",
 	LAST_MONTH = "LAST_MONTH",
 	LAST_YEAR = "LAST_YEAR",
@@ -52,16 +57,11 @@ export enum SlotOption {
 }
 
 export enum HeatmapColorModes {
-	STOPS = "STOPS",
-	GRADUAL = "GRADUAL",
-	SOLID = "SOLID",
-	LIQUID = "LIQUID",
+	STOPS = "stops",
+	GRADUAL = "gradual",
+	SOLID = "solid",
+	LIQUID = "liquid",
 }
-
-// export type SlotCalc = "TOTAL" | "AVG";
-
-// heatmap styling
-// rounded + hide week labels + hide month labels?
 
 export interface Settings {
 	dailyWritingGoal: number; // created as setting, not used anywhere yet
@@ -81,9 +81,9 @@ export interface Settings {
 
 export interface SlotConfig {
 	index: number;
-	option: SlotOption;
+	option: TargetCount;
 	unit: Unit;
-	calc: "TOTAL" | "AVG";
+	calc: CalculationType;
 }
 
 export interface PluginData {
@@ -93,6 +93,8 @@ export interface PluginData {
 		highestStreak?: number;
 		highestStreakStartDate?: string;
 		highestStreakEndDate?: string;
+		// TODO; make this work, need to track individual days, its much easier
+		daysWithCompletedGoal?: string[];
 		fileStats: FileStats[];
 		dailyActivity: DailyActivity[];
 	};
@@ -153,21 +155,21 @@ export const DEFAULT_SETTINGS: Settings = {
 		slots: [
 			{
 				index: 0,
-				option: SlotOption.THIS_DAY,
+				option: TargetCount.CURRENT_DAY,
 				unit: Unit.WORD,
-				calc: "TOTAL",
+				calc: CalculationType.TOTAL,
 			},
 			{
 				index: 1,
-				option: SlotOption.THIS_WEEK,
+				option: TargetCount.CURRENT_WEEK,
 				unit: Unit.WORD,
-				calc: "TOTAL",
+				calc: CalculationType.TOTAL,
 			},
 			{
 				index: 2,
-				option: SlotOption.LAST_MONTH,
+				option: TargetCount.LAST_MONTH,
 				unit: Unit.WORD,
-				calc: "AVG",
+				calc: CalculationType.AVG,
 			},
 		],
 	},

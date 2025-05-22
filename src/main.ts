@@ -1,4 +1,8 @@
-import { parseQueryToJSEP } from "./core/query";
+import { migrateOnStart } from "./utils/migrateData";
+import { getDateStreaks } from "@/utils/utils";
+import { parseSlotQuery } from "./core/codeBlockQuery";
+import { parseQueryToJSEP } from "./core/codeBlockQuery";
+import { SlotWrapper } from "./ui/components/SlotWrapper";
 import {
 	Plugin,
 	TFile,
@@ -6,22 +10,30 @@ import {
 	MarkdownView,
 	MarkdownPostProcessorContext,
 	MarkdownRenderChild,
+	Notice,
 } from "obsidian";
 import { v4 as uuidv4 } from "uuid";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
-import { ColorConfig, DEFAULT_SETTINGS, PluginData } from "@/defs/types";
+import {
+	ColorConfig,
+	DEFAULT_SETTINGS,
+	PluginData,
+	TargetCount,
+	Unit,
+} from "@/defs/types";
 import { db } from "@/db/db";
 import { mockMonthDailyActivity } from "./utils/devUtils";
-import { removeDuplicatedDailyEntries } from "./db/queries";
+import { getCurrentCount, removeDuplicatedDailyEntries } from "./db/queries";
 import { EVENTS, state } from "@/core/pluginState";
 import { SettingsTab } from "@/ui/views/SettingsTab";
 import { Heatmap } from "@/ui/components/Heatmap";
 
 import * as utils from "@/utils/utils";
 import * as events from "@/core/events";
+import { Entries } from "./ui/components/Entries";
 
 export default class KeepTheRhythm extends Plugin {
 	regex: RegExp;
@@ -36,6 +48,8 @@ export default class KeepTheRhythm extends Plugin {
 	// #region Initialization
 
 	async onload() {
+		//migrationf
+
 		/** Creates references for STATE usage across React Components */
 		state.setApp(this.app);
 		state.setPlugin(this);
@@ -46,7 +60,21 @@ export default class KeepTheRhythm extends Plugin {
 			this.data = { settings: DEFAULT_SETTINGS };
 			await this.saveData(this.data);
 		} else {
-			this.data = loadedData;
+			/** Check for previous data structures */
+			if (loadedData.devices) {
+				const notice = new Notice(
+					"Migrating data from previous versions",
+				);
+				const migratedData = await migrateOnStart(loadedData);
+				this.data = migratedData;
+			} else {
+				this.data = loadedData;
+			}
+		}
+
+		if (!this.data.settings) {
+			this.data.settings = DEFAULT_SETTINGS;
+			this.saveData(this.data);
 		}
 
 		/** Set of utility functions that registers required objects and sets plugin state */
@@ -60,13 +88,24 @@ export default class KeepTheRhythm extends Plugin {
 
 		/** Registers CUSTOM CODE BLOCKS */
 		this.registerMarkdownCodeBlockProcessor(
-			"keep-the-rhythm",
-			this.createCodeBlockProcessor(),
+			"ktr-heatmap",
+			this.createHeatmapCodeBlock(),
+		);
+
+		this.registerMarkdownCodeBlockProcessor(
+			"ktr-slots",
+			this.createSlotsCodeBlock(),
+		);
+
+		this.registerMarkdownCodeBlockProcessor(
+			"ktr-entries",
+			this.createEntriesCodeBlock(),
 		);
 
 		// TODO: await migrateFromJSON(previousData);
 
 		state.on(EVENTS.REFRESH_EVERYTHING, () => {
+			console.log("saving data");
 			this.saveStatsDataToJSON();
 		});
 	}
@@ -113,7 +152,7 @@ export default class KeepTheRhythm extends Plugin {
 		}
 	}
 
-	private createCodeBlockProcessor(): (
+	private createEntriesCodeBlock(): (
 		source: string,
 		el: HTMLElement,
 		ctx: MarkdownPostProcessorContext,
@@ -127,10 +166,95 @@ export default class KeepTheRhythm extends Plugin {
 				return;
 			}
 
-			let query;
+			const container = el.createDiv("slots-codeblock");
+			const root = createRoot(container);
+			this.codeBlockRoots.set(el, { root, ctx, source });
+
+			let date;
 			if (source.trim() !== "") {
-				query = parseQueryToJSEP(source.trim());
+				date = source.trim();
 			}
+			root.render(
+				React.createElement(Entries, {
+					date: date,
+				}),
+			);
+
+			// ctx.addChild(
+			// 	new (class extends MarkdownRenderChild {
+			// 		constructor(containerEl: HTMLElement) {
+			// 			super(containerEl);
+			// 		}
+			// 		onunload() {
+			// 			root.unmount();
+			// 		}
+			// 	})(container),
+			// );
+			return;
+		};
+	}
+
+	private createSlotsCodeBlock(): (
+		source: string,
+		el: HTMLElement,
+		ctx: MarkdownPostProcessorContext,
+	) => void {
+		return (
+			source: string,
+			el: HTMLElement,
+			ctx: MarkdownPostProcessorContext,
+		) => {
+			if (!this.data || !this.data.settings) {
+				return;
+			}
+
+			const config = parseSlotQuery(source);
+			if (config.length === 0) return;
+
+			const container = el.createDiv("slots-codeblock");
+			const root = createRoot(container);
+			this.codeBlockRoots.set(el, { root, ctx, source });
+
+			root.render(
+				React.createElement(SlotWrapper, {
+					slots: config,
+					isCodeBlock: true,
+				}),
+			);
+
+			// ctx.addChild(
+			// 	new (class extends MarkdownRenderChild {
+			// 		constructor(containerEl: HTMLElement) {
+			// 			super(containerEl);
+			// 		}
+			// 		onunload() {
+			// 			root.unmount();
+			// 		}
+			// 	})(container),
+			// );
+			return;
+		};
+	}
+
+	private createHeatmapCodeBlock(): (
+		source: string,
+		el: HTMLElement,
+		ctx: MarkdownPostProcessorContext,
+	) => void {
+		return (
+			source: string,
+			el: HTMLElement,
+			ctx: MarkdownPostProcessorContext,
+		) => {
+			if (!this.data || !this.data.settings) {
+				return;
+			}
+
+			// if (source.trim() !== "") return
+
+			const query = parseQueryToJSEP(source.trim());
+
+			if (!query?.options) return;
 
 			const container = el.createDiv("heatmap-codeblock");
 			const root = createRoot(container);
@@ -146,8 +270,9 @@ export default class KeepTheRhythm extends Plugin {
 
 			root.render(
 				React.createElement(Heatmap, {
-					heatmapConfig: this.data.settings.heatmapConfig,
-					query: query,
+					heatmapConfig: query?.options,
+					query: query?.filter,
+					isCodeBlock: true,
 				}),
 			);
 
@@ -163,77 +288,76 @@ export default class KeepTheRhythm extends Plugin {
 			);
 			return;
 		};
-
-		// const filteredStats: Stats = {};
-
-		// Object.entries(this.mergedStats).forEach(([date, dateData]) => {
-		// 	const matchingFiles = Object.entries(dateData.files).filter(
-		// 		([filePath]) => {
-		// 			let includeFile = [];
-		// 			for (const condition of pathConditions) {
-		// 				const pathIncluded = filePath.includes(
-		// 					condition.path,
-		// 				);
-		// 				if (pathIncluded && condition.isInclusion) {
-		// 					includeFile.push(true);
-		// 				} else if (
-		// 					!pathIncluded &&
-		// 					!condition.isInclusion
-		// 				) {
-		// 					includeFile.push(true);
-		// 				} else if (pathIncluded && !condition.isInclusion) {
-		// 					includeFile.push(false);
-		// 				} else if (!pathIncluded && condition.isInclusion) {
-		// 					includeFile.push(false);
-		// 				}
-		// 			}
-		// 			return includeFile.every(
-		// 				(condition) => condition === true,
-		// 			);
-		// 		},
-		// 	);
-
-		// 	if (matchingFiles.length > 0) {
-		// 		const dateDelta = matchingFiles.reduce(
-		// 			(total, [_, fileData]) =>
-		// 				total + (fileData.current - fileData.initial),
-		// 			0,
-		// 		);
-
-		// 		if (dateDelta !== 0) {
-		// 			filteredStats[date] = {
-		// 				totalDelta: dateDelta,
-		// 				files: Object.fromEntries(matchingFiles),
-		// 			};
-		// 		}
-		// 	}
-		// });
-
-		// const container = el.createDiv("heatmap-codeblock");
-		// const root = createRoot(container);
-		// this.codeBlockRoots.set(el, { root, ctx, source });
-
-		// root.render(
-		// 	React.createElement(Heatmap, {
-		// 		data: filteredStats,
-		// 		intensityLevels: this.pluginData.settings.intensityLevels,
-		// 		...toggles,
-		// 		plugin: this,
-		// 	}),
-		// );
-
-		// ctx.addChild(
-		// 	new (class extends MarkdownRenderChild {
-		// 		constructor(containerEl: HTMLElement) {
-		// 			super(containerEl);
-		// 		}
-		// 		onunload() {
-		// 			root.unmount();
-		// 		}
-		// 	})(container),
-		// );
-		// };
 	}
+	// const filteredStats: Stats = {};
+
+	// Object.entries(this.mergedStats).forEach(([date, dateData]) => {
+	// 	const matchingFiles = Object.entries(dateData.files).filter(
+	// 		([filePath]) => {
+	// 			let includeFile = [];
+	// 			for (const condition of pathConditions) {
+	// 				const pathIncluded = filePath.includes(
+	// 					condition.path,
+	// 				);
+	// 				if (pathIncluded && condition.isInclusion) {
+	// 					includeFile.push(true);
+	// 				} else if (
+	// 					!pathIncluded &&
+	// 					!condition.isInclusion
+	// 				) {
+	// 					includeFile.push(true);
+	// 				} else if (pathIncluded && !condition.isInclusion) {
+	// 					includeFile.push(false);
+	// 				} else if (!pathIncluded && condition.isInclusion) {
+	// 					includeFile.push(false);
+	// 				}
+	// 			}
+	// 			return includeFile.every(
+	// 				(condition) => condition === true,
+	// 			);
+	// 		},
+	// 	);
+
+	// 	if (matchingFiles.length > 0) {
+	// 		const dateDelta = matchingFiles.reduce(
+	// 			(total, [_, fileData]) =>
+	// 				total + (fileData.current - fileData.initial),
+	// 			0,
+	// 		);
+
+	// 		if (dateDelta !== 0) {
+	// 			filteredStats[date] = {
+	// 				totalDelta: dateDelta,
+	// 				files: Object.fromEntries(matchingFiles),
+	// 			};
+	// 		}
+	// 	}
+	// });
+
+	// const container = el.createDiv("heatmap-codeblock");
+	// const root = createRoot(container);
+	// this.codeBlockRoots.set(el, { root, ctx, source });
+
+	// root.render(
+	// 	React.createElement(Heatmap, {
+	// 		data: filteredStats,
+	// 		intensityLevels: this.pluginData.settings.intensityLevels,
+	// 		...toggles,
+	// 		plugin: this,
+	// 	}),
+	// );
+
+	// ctx.addChild(
+	// 	new (class extends MarkdownRenderChild {
+	// 		constructor(containerEl: HTMLElement) {
+	// 			super(containerEl);
+	// 		}
+	// 		onunload() {
+	// 			root.unmount();
+	// 		}
+	// 	})(container),
+	// );
+	// };
 
 	private initializeViews() {
 		this.registerView(VIEW_TYPE, (leaf) => {
@@ -279,7 +403,6 @@ export default class KeepTheRhythm extends Plugin {
 				db.dailyActivity.clear();
 				db.fileStats.clear();
 				this.updateAndSaveEverything();
-				// emit refresh
 			},
 		});
 
@@ -376,9 +499,41 @@ export default class KeepTheRhythm extends Plugin {
 
 	// #region SAVING DATA
 
+	public async updateCurrentStreak(increase: boolean) {
+		if (!this.data.stats) return;
+
+		// TODO: check previous date to  see when was the last one
+
+		if (!this.data.stats.daysWithCompletedGoal) {
+			this.data.stats.daysWithCompletedGoal = [];
+		}
+
+		const { longestStreak, currentStreak } = getDateStreaks(
+			this.data.stats.daysWithCompletedGoal,
+		);
+
+		console.log(longestStreak + " longest streak");
+		console.log(currentStreak + " current streak");
+
+		if (increase) {
+			if (this.data.stats.daysWithCompletedGoal.includes(state.today)) {
+				return;
+			}
+			this.data.stats.daysWithCompletedGoal.push(state.today);
+		} else {
+			if (this.data.stats.daysWithCompletedGoal.includes(state.today)) {
+				const newArray = this.data.stats.daysWithCompletedGoal?.filter(
+					(item) => item !== state.today,
+				);
+				this.data.stats.daysWithCompletedGoal = newArray;
+			}
+		}
+
+		state.emit(EVENTS.REFRESH_EVERYTHING);
+	}
+
 	public async updateAndSaveEverything() {
 		await this.saveData(this.data);
-		console.log("saving everything");
 		state.emit(EVENTS.REFRESH_EVERYTHING);
 	}
 
@@ -388,7 +543,7 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	private async saveStatsDataToJSON() {
-		const start = performance.now();
+		// const start = performance.now();
 		const fileStats = await db.fileStats.toArray();
 		const dailyActivity = await db.dailyActivity.toArray();
 
@@ -398,7 +553,7 @@ export default class KeepTheRhythm extends Plugin {
 		};
 
 		await this.saveData(this.data);
-		const end = performance.now();
+		// const end = performance.now();
 		// utils.log(`${end - start}`);
 	}
 

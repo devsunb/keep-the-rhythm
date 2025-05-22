@@ -1,4 +1,4 @@
-import { SlotOption } from "@/defs/types";
+import { TargetCount } from "@/defs/types";
 
 export const weekdaysNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const monthNames = [
@@ -16,25 +16,29 @@ export const monthNames = [
 	"Dec",
 ];
 
-export function getSlotLabel(option: SlotOption) {
+export function getSlotLabel(option: TargetCount) {
 	switch (option) {
-		case SlotOption.CURRENT_FILE:
+		case TargetCount.CURRENT_FILE:
 			return "This File";
-		case SlotOption.THIS_DAY:
+		case TargetCount.CURRENT_DAY:
 			return "Today";
-		case SlotOption.THIS_WEEK:
+		case TargetCount.CURRENT_WEEK:
 			return "This Week";
-		case SlotOption.THIS_MONTH:
+		case TargetCount.CURRENT_MONTH:
 			return "This Month";
-		case SlotOption.THIS_YEAR:
+		case TargetCount.CURRENT_YEAR:
 			return "This Year";
-		case SlotOption.LAST_DAY:
+		case TargetCount.LAST_DAY:
 			return "Last 24 Hours";
-		case SlotOption.LAST_WEEK:
+		case TargetCount.LAST_WEEK:
 			return "Last 7 Days";
-		case SlotOption.LAST_MONTH:
+		case TargetCount.LAST_MONTH:
 			return "Last 30 Days";
-		case SlotOption.LAST_YEAR:
+		case TargetCount.LAST_YEAR:
 			return "Last Year";
+		case TargetCount.WHOLE_VAULT:
+			return "Vault";
+		case TargetCount.CURRENT_STREAK:
+			return "Streak";
 	}
 }

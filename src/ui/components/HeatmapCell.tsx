@@ -19,6 +19,7 @@ interface HeatmapCellProps {
 	count: number;
 	date: string;
 	mode: HeatmapColorModes;
+	squared?: boolean;
 }
 
 export const HeatmapCell = ({
@@ -26,12 +27,9 @@ export const HeatmapCell = ({
 	count,
 	date,
 	mode,
+	squared,
 }: HeatmapCellProps) => {
-	const isModifierHeld = useCtrlKey();
-
 	const handleClick = async (event: React.MouseEvent<HTMLDivElement>) => {
-		if (!isModifierHeld) return;
-
 		const dailyNotesSettings = getCorePluginSettings("daily-notes");
 		let notePath = "";
 
@@ -73,6 +71,7 @@ export const HeatmapCell = ({
 		mode == HeatmapColorModes.SOLID ||
 		intensity == 0
 	) {
+		//  TODO: fix this, is not working :(
 		intensityClass = "level-" + intensity + " ";
 	} else if (mode == HeatmapColorModes.GRADUAL) {
 		intensityClass = "proportional-intensity";
@@ -81,7 +80,10 @@ export const HeatmapCell = ({
 	}
 	const isTodayClass =
 		date == formatDate(new Date()) ? "heatmap-square-today" : "";
-	const classes = `heatmap-square ${intensityClass} ${isTodayClass}`;
+
+	const isSquaredClass = squared ? "cell-squared" : "cell-rounded";
+
+	const classes = `heatmap-square ${isTodayClass} ${isSquaredClass} ${intensityClass}`;
 
 	const style = {
 		"--intensity": `${intensity}%`,

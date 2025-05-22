@@ -1,3 +1,6 @@
+import { Unit } from "@/defs/types";
+import { TargetCount } from "@/defs/types";
+import { getCurrentCount } from "@/db/queries";
 import { EVENTS, state } from "./pluginState";
 import { TFile, Editor } from "obsidian";
 import { db } from "../db/db";
@@ -12,7 +15,7 @@ import { emit } from "process";
 const moment = _moment as unknown as typeof _moment.default;
 
 let dbUpdateTimeout: NodeJS.Timeout | null = null;
-const DEBOUNCE_TIME = 200; // ms
+const DEBOUNCE_TIME = 500; // ms
 
 /**
  * @function handleEditorChange
@@ -35,10 +38,10 @@ export async function handleEditorChange(
 
 	/** Handle mismatches between state and current opened file */
 	if (!activity) {
-		await handleFileOpen(info.file);
+		// await handleFileOpen(info.file);
 		return;
 	} else if (activity?.filePath !== info.file.path) {
-		await handleFileOpen(info.file);
+		// await handleFileOpen(info.file);
 		return;
 	}
 
@@ -92,7 +95,6 @@ export async function handleEditorChange(
 
 	if (!existingEntry) {
 		// No entry yet for this timeKey, so push a new one
-		console.log("no entry");
 		changes.push({
 			timeKey: currentTimeKey,
 			w: wordsAdded || 0,
@@ -100,13 +102,10 @@ export async function handleEditorChange(
 		});
 	} else {
 		// Entry exists, so update the word and char count
-		console.log("using existing entry");
 		existingEntry.w += wordsAdded;
 		existingEntry.c += charsAdded;
 	}
 
-	// console.log(wordsAdded, charsAdded);
-	console.log(existingEntry);
 	// TODO: update to only refresh today's data
 	state.emit(EVENTS.REFRESH_EVERYTHING);
 
@@ -301,6 +300,7 @@ async function flushChangesToDB(activity: DailyActivity) {
 			);
 		});
 
+	checkStreak();
 	state.emit(EVENTS.REFRESH_EVERYTHING);
 }
 
@@ -313,4 +313,23 @@ export function cleanDBTimeout() {
 		clearTimeout(dbUpdateTimeout);
 	}
 	flushChangesToDB(state.currentActivity);
+}
+
+/**
+ * @function checkStreak
+ */
+
+async function checkStreak() {
+	const writtenToday = await getCurrentCount(
+		Unit.WORD,
+		TargetCount.CURRENT_DAY,
+	);
+
+	const goal = state.plugin.data?.settings?.dailyWritingGoal || 500;
+
+	if (writtenToday >= goal) {
+		state.plugin.updateCurrentStreak(true);
+	} else {
+		state.plugin.updateCurrentStreak(false);
+	}
 }

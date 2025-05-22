@@ -1,9 +1,13 @@
+import { HeatmapColorModes } from "../defs/types";
+import { CalculationType, TargetCount } from "../defs/types";
 import { DailyActivity, TimeEntry } from "@/db/types";
 import { App } from "obsidian";
+import { Language } from "../defs/types";
 import { db } from "../db/db";
 import { Unit } from "../defs/types";
 import KeepTheRhythm from "../main";
 import { TFile } from "obsidian";
+import { getLanguageBasedWordCount } from "@/core/wordCounting";
 import { MarkdownView } from "obsidian";
 import { WorkspaceLeaf } from "obsidian";
 import { moment as _moment } from "obsidian";
@@ -97,18 +101,23 @@ export function sumTimeEntries(
 ): number {
 	let total = 0;
 
-	if (unit === Unit.WORD) {
-		total += dailyActivity.wordCountStart;
-		for (const entry of dailyActivity.changes) {
-			total += entry.w;
-		}
-	}
+	switch (unit) {
+		case Unit.WORD:
+			total += dailyActivity?.wordCountStart || 0;
+			if (!dailyActivity?.changes) break;
 
-	if (unit === Unit.CHAR) {
-		total += dailyActivity.charCountStart;
-		for (const entry of dailyActivity.changes) {
-			total += entry.c;
-		}
+			for (const entry of dailyActivity.changes) {
+				total += entry.w;
+			}
+			break;
+		case Unit.CHAR:
+			total += dailyActivity?.charCountStart || 0;
+			if (!dailyActivity?.changes) break;
+
+			for (const entry of dailyActivity.changes) {
+				total += entry.c;
+			}
+			break;
 	}
 
 	return total;
@@ -155,4 +164,72 @@ export function parseToggles(query: string) {
 	if (hideEntries) toggles.showEntries = false;
 
 	return toggles;
+}
+
+export async function getFileWordAndCharCount(
+	fileContent: string,
+	enabledLanguages: Language[],
+) {
+	const wordCount = getLanguageBasedWordCount(fileContent, enabledLanguages);
+	const charCount = fileContent.length;
+	return [wordCount, charCount];
+}
+
+export function isValidTargetCount(value: string): value is TargetCount {
+	return Object.values(TargetCount).includes(value as TargetCount);
+}
+
+export function isValidUnit(value: string): value is Unit {
+	return Object.values(Unit).includes(value as Unit);
+}
+
+export function isValidCalculationType(
+	value: string,
+): value is CalculationType {
+	return Object.values(CalculationType).includes(value as CalculationType);
+}
+
+export function isValidColoringMode(value: string): value is HeatmapColorModes {
+	return Object.values(HeatmapColorModes).includes(
+		value as HeatmapColorModes,
+	);
+}
+
+export function getDateStreaks(dateStrings: string[]) {
+	const dateSet = new Set(dateStrings);
+	const sortedDates = [...dateSet].sort(); // YYYY-MM-DD format sorts lexicographically
+
+	let longestStreak = 0;
+	let currentStreak = 0;
+
+	for (let i = 0; i < sortedDates.length; i++) {
+		const startDate = moment(sortedDates[i]);
+		const prevDay = startDate
+			.clone()
+			.subtract(1, "day")
+			.format("YYYY-MM-DD");
+		if (!dateSet.has(prevDay)) {
+			let streak = 1;
+			let nextDate = startDate.clone().add(1, "day");
+			while (dateSet.has(nextDate.format("YYYY-MM-DD"))) {
+				streak++;
+				nextDate.add(1, "day");
+			}
+			longestStreak = Math.max(longestStreak, streak);
+		}
+	}
+
+	let today = moment().startOf("day");
+	while (dateSet.has(today.format("YYYY-MM-DD"))) {
+		currentStreak++;
+		today.subtract(1, "day");
+	}
+
+	return { longestStreak, currentStreak };
+}
+
+export function getDateBasedOnIndex(index: number) {
+	const today = moment();
+	const monday = today.clone().startOf("isoWeek"); // isoWeek starts on Monday
+	return monday.clone().add(index, "days").format("YYYY-MM-DD");
 }

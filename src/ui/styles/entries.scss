@@ -1,9 +1,32 @@
-.todayEntires__list-item:hover button.todayEntries__delete-button {
-	margin-left: 4px;
-	max-width: 18px;
-	opacity: 1;
+.todayEntries__section-title {
+	color: var(--text-muted);
+	font-size: var(--font-smallest);
 }
-button.todayEntries__delete-button {
+
+.todayEntries__header {
+	display: flex;
+	padding: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	align-items: center;
+	justify-content: space-between;
+
+	&:hover button.todayEntries__entry-unit {
+		margin-left: 6px;
+		max-width: 18px;
+		opacity: 1;
+	}
+}
+
+.todayEntires__list-item:hover {
+	button.todayEntries__delete-button {
+		margin-left: 6px;
+		max-width: 18px;
+		opacity: 1;
+	}
+}
+
+button.todayEntries__delete-button,
+button.todayEntries__entry-unit {
 	transition:
 		margin-left 200ms ease,
 		max-width 200ms ease,
@@ -15,14 +38,18 @@ button.todayEntries__delete-button {
 	box-shadow: none;
 	background-color: transparent;
 	cursor: pointer;
-	margin-left: 0px;
+	margin-left: px;
 	opacity: 0;
 	max-width: 0;
 }
 
+button.todayEntries__entry-unit {
+	color: var(--text-muted);
+}
 .todayEntries__list-item-right {
 	display: flex;
 	flex-direction: row;
+	align-items: center;
 }
 
 .empty-data {
@@ -33,6 +60,7 @@ button.todayEntries__delete-button {
 }
 
 .todayEntries__section {
+	margin-top: 8px;
 	display: flex;
 	flex-direction: column;
 
@@ -42,18 +70,11 @@ button.todayEntries__delete-button {
 	border: 1px solid var(--background-modifier-border);
 }
 
-.todayEntries__section-title {
-	color: var(--text-muted);
-	font-size: var(--font-smallest);
-	padding: 8px;
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
 .todayEntires__list-item {
 	display: flex;
 	justify-content: space-between;
-	gap: 12px;
-	height: 32px;
+	align-items: center;
+	gap: 2px;
 	padding: 6px 8px;
 }
 
@@ -65,10 +86,21 @@ button.todayEntries__delete-button {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	text-wrap: nowrap;
+
+	&:hover {
+		text-decoration: underline;
+		cursor: pointer;
+	}
 }
 
 .todayEntries__word-count {
 	min-width: fit-content;
 	text-wrap: nowrap;
 	color: var(--text-muted);
+}
+
+.todayEntries_list-item-unit {
+	color: var(--text-muted);
+	padding-left: 3px;
+	letter-spacing: -0.25px;
 }

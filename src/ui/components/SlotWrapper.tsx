@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { useAltKey } from "@/utils/useModiferKey";
 import React from "react";
 import { formatDate } from "@/utils/dateUtils";
-import { SlotConfig, SlotOption, Unit } from "@/defs/types";
+import { CalculationType, SlotConfig, TargetCount, Unit } from "@/defs/types";
 import { Slot } from "./Slot";
 import { plugins } from "chart.js";
 import { state, EVENTS } from "@/core/pluginState";
@@ -21,10 +21,10 @@ import { TransitionGroup, CSSTransition } from "react-transition-group";
 // DEFAULT: today count, avg last week, total last 30 days
 interface SlotWrapperProps {
 	slots: SlotConfig[] | undefined;
+	isCodeBlock?: boolean;
 }
 
-export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
-	const isModifierHeld = useAltKey();
+export const SlotWrapper = ({ slots, isCodeBlock }: SlotWrapperProps) => {
 	const [slotsState, setSlotsState] = useState<
 		(SlotConfig & { uuid?: string })[] | undefined
 	>(() => slots?.map((slot) => ({ ...slot, uuid: uuidv4() })));
@@ -45,7 +45,9 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 		// state.off(EVENTS.REFRESH_EVERYTHING, updateSlots);
 		// state.on(EVENTS.REFRESH_EVERYTHING, updateSlots);
 
-		updateSlots();
+		if (!isCodeBlock) {
+			updateSlots();
+		}
 
 		return () => {
 			// state.off(EVENTS.REFRESH_EVERYTHING, updateSlots);
@@ -80,9 +82,9 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 		}
 		const newSlot: SlotConfig = {
 			index: state.plugin.data.settings.sidebarConfig.slots.length,
-			option: SlotOption.CURRENT_FILE,
+			option: TargetCount.CURRENT_FILE,
 			unit: Unit.WORD,
-			calc: "TOTAL",
+			calc: CalculationType.TOTAL,
 		};
 
 		const updatedSlots = [
@@ -117,17 +119,22 @@ export const SlotWrapper = ({ slots }: SlotWrapperProps) => {
 							unit={slot.unit}
 							calc={slot.calc}
 							onDelete={handleDeleteClick}
+							isCodeBlock={isCodeBlock}
 						/>
 					</CSSTransition>
 				))}
 			</TransitionGroup>
-			<button
-				className="KTR-add-slot-button"
-				onClick={handleAddClick}
-				disabled={slotsState && slotsState?.length >= 10 ? true : false}
-			>
-				+ ADD NEW SLOT
-			</button>
+			{!isCodeBlock && (
+				<button
+					className="KTR-add-slot-button"
+					onClick={handleAddClick}
+					disabled={
+						slotsState && slotsState?.length >= 10 ? true : false
+					}
+				>
+					+ ADD NEW SLOT
+				</button>
+			)}
 		</div>
 	);
 };

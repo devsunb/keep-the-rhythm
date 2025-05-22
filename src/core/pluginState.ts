@@ -17,6 +17,8 @@ export const EVENTS = {
 };
 
 export class PluginState {
+	private _currentVaultCount: number;
+	private _DEBOUNCE_VAULT_READ: number = 1000;
 	private _currentFileActivity: DailyActivity;
 	private _today: string = formatDate(new Date());
 
@@ -28,10 +30,21 @@ export class PluginState {
 	// private _deviceId: string;
 	private _cache: Record<string, number> = {};
 	private _cacheIsSet: boolean = false;
+	private _reachedGoalToday: boolean = false;
+	private _vaultReadTimeout: typeof setTimeout | null;
 
-	private _currentStreak: number = 0;
-	private _wordsWrittenToday: number = 0;
-
+	get currentVaultCount(): number {
+		return this.currentVaultCount;
+	}
+	get DEBOUNCE_VAULT_READ() {
+		return this._DEBOUNCE_VAULT_READ;
+	}
+	get vaultReadTimeout() {
+		return this._vaultReadTimeout;
+	}
+	get reachedGoalToday() {
+		return this._reachedGoalToday;
+	}
 	get historicalCache() {
 		return this._cache;
 	}
@@ -54,6 +67,16 @@ export class PluginState {
 	// 	return this._deviceId;
 	// }
 
+	setCurrentVaultCount(newVal: number) {
+		this._currentVaultCount = newVal;
+	}
+	setVaultReadTimeout(timeout: typeof setTimeout | null) {
+		this._vaultReadTimeout = timeout;
+	}
+	setReachedGoalToday(newValue: boolean) {
+		this._reachedGoalToday = newValue;
+	}
+
 	setApp(app: App) {
 		this._app = app;
 	}
@@ -63,7 +86,6 @@ export class PluginState {
 	}
 	setCurrentActivity(acitvity: DailyActivity) {
 		this._currentFileActivity = acitvity;
-		// this.emit(EVENTS.FILE_CHANGED);
 		state.emit(EVENTS.REFRESH_EVERYTHING);
 	}
 
@@ -88,9 +110,7 @@ export class PluginState {
 		this._events[event].forEach((listener) => listener(...args));
 	}
 
-	public async resetCache() {
-		console.log("no cache anymore baby!");
-	}
+	public async resetCache() {}
 	// 	const requiredDates = new Set<string>();
 
 	// 	for (let week = 0; week < weeksToShow; week++) {

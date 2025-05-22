@@ -1,6 +1,18 @@
+import { getDateStreaks } from "@/utils/utils";
 import { db } from "./db";
-import { Unit } from "../defs/types";
+import { Language, Unit, TargetCount, CalculationType } from "../defs/types";
+import { formatDate } from "@/utils/dateUtils";
+import { state } from "@/core/pluginState";
+import {
+	getStartOfMonth,
+	getStartOfWeek,
+	getStartOfYear,
+} from "@/utils/dateUtils";
 import { sumTimeEntries } from "@/utils/utils";
+import { DailyActivity } from "./types";
+import { moment as _moment, debounce, Notice, Vault } from "obsidian";
+import { getFileWordAndCharCount } from "@/utils/utils";
+const moment = _moment as unknown as typeof _moment.default;
 
 export async function getActivityByDate(date: string) {
 	return await db.dailyActivity.where("date").equals(date).toArray();
@@ -25,7 +37,7 @@ export async function getTotalValueByDate(
 		.toArray();
 
 	let value = activities.reduce((sum, activity) => {
-		return sumTimeEntries(activity, unit);
+		return sum + sumTimeEntries(activity, unit);
 	}, 0);
 
 	return value || 0;
@@ -42,7 +54,7 @@ export async function getTotalValueInDateRange(
 		.toArray();
 
 	let value = activities.reduce((sum, activity) => {
-		return sumTimeEntries(activity, unit);
+		return sum + sumTimeEntries(activity, unit);
 	}, 0);
 
 	return value;
@@ -129,3 +141,226 @@ export async function removeDuplicatedDailyEntries() {
 		duplicatesRemoved: duplicateIds.length,
 	};
 }
+
+export async function getActivitiesFromLast24Hours(): Promise<DailyActivity[]> {
+	const now = moment();
+	const yesterday = now.clone().subtract(1, "day").format("YYYY-MM-DD");
+	const today = now.format("YYYY-MM-DD");
+
+	const yesterdayActivities = await db.dailyActivity
+		.where("date")
+		.equals(yesterday)
+		.toArray();
+
+	const todayActivities = await db.dailyActivity
+		.where("date")
+		.equals(today)
+		.toArray();
+
+	return [...yesterdayActivities, ...todayActivities];
+}
+
+export async function getTotalValueFromLast24Hours(
+	unit: Unit,
+): Promise<number> {
+	const activities = await getActivitiesFromLast24Hours();
+	return sumLast24Hours(activities, unit);
+}
+
+export function sumLast24Hours(
+	activities: DailyActivity[],
+	unit: Unit,
+	now: Date = new Date(),
+): number {
+	const cutoff = moment(now).subtract(24, "hours");
+
+	let total = 0;
+
+	for (const activity of activities) {
+		if (!activity.changes) continue;
+
+		for (const entry of activity.changes) {
+			const fullDateTime = moment(`${activity.date}T${entry.timeKey}`);
+
+			if (fullDateTime.isValid() && fullDateTime.isAfter(cutoff)) {
+				total += unit === Unit.WORD ? entry.w : entry.c;
+			}
+		}
+	}
+
+	return total;
+}
+
+export async function getWholeVaultCount(
+	unit: Unit,
+	vault: Vault,
+	enabledLanguages: Language[],
+) {
+	const start = performance.now();
+	const files = vault.getMarkdownFiles();
+
+	let sum = 0;
+
+	for (let i = 0; i < files.length; i++) {
+		const fileContent = await vault.cachedRead(files[i]);
+		const [fileWordCount, fileCharCount] = await getFileWordAndCharCount(
+			fileContent,
+			enabledLanguages,
+		);
+
+		if (unit == Unit.CHAR) {
+			sum += fileCharCount;
+		} else {
+			sum += fileWordCount;
+		}
+	}
+
+	console.log("read the entire vault in " + (performance.now() - start));
+	return sum;
+}
+
+export async function getCurrentCount(
+	unit: Unit,
+	target: TargetCount,
+	calc?: CalculationType,
+): Promise<number> {
+	if (target === TargetCount.CURRENT_FILE) {
+		const countStart = state?.currentActivity?.wordCountStart || 0;
+		const countWritten = sumTimeEntries(state?.currentActivity, unit) || 0;
+		return countStart + countWritten;
+	}
+
+	let startDate: string;
+	let totalDays: number;
+
+	switch (target) {
+		case TargetCount.CURRENT_STREAK:
+			// return state.plugin.data?.stats?.currentStreak || 0;
+			if (state.plugin.data.stats?.daysWithCompletedGoal) {
+				const { currentStreak } = getDateStreaks(
+					state.plugin.data.stats?.daysWithCompletedGoal,
+				);
+				return currentStreak;
+			} else {
+				return 0;
+			}
+
+		case TargetCount.CURRENT_DAY:
+			return await getTotalValueByDate(state.today, unit);
+
+		case TargetCount.CURRENT_WEEK:
+			startDate = formatDate(getStartOfWeek(new Date()));
+			totalDays = moment(state.today).diff(startDate, "days") + 1;
+			break;
+
+		case TargetCount.CURRENT_MONTH:
+			startDate = formatDate(getStartOfMonth(new Date()));
+			totalDays = moment(state.today).diff(startDate, "days") + 1;
+			break;
+
+		case TargetCount.CURRENT_YEAR:
+			startDate = formatDate(getStartOfYear(new Date()));
+			totalDays =
+				Math.floor(
+					(new Date(state.today).getTime() -
+						new Date(startDate).getTime()) /
+						(1000 * 3600 * 24),
+				) + 1;
+			break;
+
+		case TargetCount.LAST_DAY:
+			return getTotalValueFromLast24Hours(unit);
+			break;
+
+		case TargetCount.LAST_WEEK:
+			startDate = moment(state.today)
+				.subtract(7, "days")
+				.format("YYYY-MM-DD");
+			totalDays = 7;
+			break;
+
+		case TargetCount.LAST_MONTH:
+			startDate = moment(state.today)
+				.subtract(30, "days")
+				.format("YYYY-MM-DD");
+			totalDays = 30;
+			break;
+
+		case TargetCount.LAST_YEAR:
+			startDate = moment(state.today)
+				.subtract(365, "days")
+				.format("YYYY-MM-DD");
+			totalDays = 365;
+			break;
+
+		case TargetCount.WHOLE_VAULT:
+			return await debouncedVaultCountRead(
+				unit,
+				state.app.vault,
+				state.plugin.data.settings.enabledLanguages,
+			);
+		// return state.currentVaultCount;
+		// return getWholeVaultCount(
+		// 	unit,
+		// 	state.app.vault,
+		// 	state.plugin.data.settings.enabledLanguages,
+		// );
+
+		default:
+			console.log(target);
+			throw new Error("Unsupported target type");
+	}
+
+	const value = await getTotalValueInDateRange(startDate, state.today, unit);
+	return calc === CalculationType.AVG ? Math.round(value / totalDays) : value;
+}
+
+let resolveQueue: ((v: number) => void)[] = [];
+export async function debouncedVaultCountRead(
+	unit: Unit,
+	vault: Vault,
+	enabledLanguages: Language[],
+): Promise<number> {
+	if (state.vaultReadTimeout) clearTimeout(state.vaultReadTimeout as any);
+
+	const promise = new Promise<number>((resolve) => {
+		resolveQueue.push(resolve);
+	});
+
+	state.setVaultReadTimeout(
+		setTimeout(async () => {
+			const value = await getWholeVaultCount(
+				unit,
+				vault,
+				enabledLanguages,
+			);
+			state.setCurrentVaultCount(value);
+			resolveQueue.forEach((res) => res(value));
+			resolveQueue = [];
+			state.setVaultReadTimeout(null);
+		}, state.DEBOUNCE_VAULT_READ) as any,
+	);
+	return promise;
+}
+
+export const deleteActivityFromDate = async (
+	filePath: string,
+	date: string,
+) => {
+	console.log("deleting");
+
+	const entry = await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([date, filePath])
+		.first();
+
+	if (entry?.id) {
+		db.dailyActivity.update(entry.id, {
+			changes: [],
+		});
+	} else {
+		const notice = new Notice(
+			"Failed to delete this entry! This is a bug, contact the developer.",
+		);
+	}
+};

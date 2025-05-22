@@ -44,6 +44,8 @@ class ConfirmationModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
+		//TODO
+
 		contentEl.createEl("h3", { text: "Confirm action" });
 		contentEl.createEl("p", { text: this.message });
 
@@ -96,7 +98,14 @@ export class SettingsTab extends PluginSettingTab {
 	}
 
 	async changeColorMode(value: string) {
-		this.plugin.data.settings.heatmapConfig.intensityMode = value;
+		const newConfig = {
+			intensityMode: value.toLowerCase(),
+		};
+		this.plugin.data.settings.heatmapConfig = {
+			...this.plugin.data.settings.heatmapConfig,
+			...newConfig,
+		};
+
 		await this.plugin.updateAndSaveEverything();
 		this.display();
 	}
@@ -105,6 +114,7 @@ export class SettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		containerEl.createEl("h3", { text: "Tutorial / guide" });
 		containerEl.createEl("h5", { text: "General" });
 
 		new Setting(containerEl)
@@ -186,8 +196,14 @@ export class SettingsTab extends PluginSettingTab {
 							this.plugin.data.settings.heatmapConfig.roundCells,
 						)
 						.onChange(async (value) => {
-							this.plugin.data.settings.heatmapConfig.roundCells =
-								value;
+							const newConfig = {
+								roundCells: value,
+							};
+
+							this.plugin.data.settings.heatmapConfig = {
+								...this.plugin.data.settings.heatmapConfig,
+								...newConfig,
+							};
 							await this.plugin.updateAndSaveEverything();
 							this.display();
 						}),
@@ -203,8 +219,15 @@ export class SettingsTab extends PluginSettingTab {
 								.hideMonthLabels,
 						)
 						.onChange(async (value) => {
-							this.plugin.data.settings.heatmapConfig.hideMonthLabels =
-								value;
+							const newConfig = {
+								hideMonthLabels: value,
+							};
+
+							this.plugin.data.settings.heatmapConfig = {
+								...this.plugin.data.settings.heatmapConfig,
+								...newConfig,
+							};
+
 							await this.plugin.updateAndSaveEverything();
 							this.display();
 						}),
@@ -220,8 +243,15 @@ export class SettingsTab extends PluginSettingTab {
 								.hideWeekdayLabels,
 						)
 						.onChange(async (value) => {
-							this.plugin.data.settings.heatmapConfig.hideWeekdayLabels =
-								value;
+							const newConfig = {
+								hideWeekdayLabels: value,
+							};
+
+							this.plugin.data.settings.heatmapConfig = {
+								...this.plugin.data.settings.heatmapConfig,
+								...newConfig,
+							};
+
 							await this.plugin.updateAndSaveEverything();
 							this.display();
 						}),
@@ -279,7 +309,7 @@ export class SettingsTab extends PluginSettingTab {
 				dropdown
 					.addOptions({ ...HeatmapColorModes })
 					.setValue(
-						this.plugin.data.settings.heatmapConfig.intensityMode,
+						this.plugin.data.settings.heatmapConfig.intensityMode.toUpperCase(),
 					)
 					.onChange(async (value) => {
 						await this.changeColorMode(value);
@@ -357,6 +387,12 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.createEl("hr");
 		new Setting(containerEl).setName("Others").setHeading();
+
+		containerEl.createEl("button").setText("Saw or bug or have feedback?");
+
+		containerEl.createEl("div").innerHTML = `
+			<a href="https://www.buymeacoffee.com/ezben"><img src="https://img.buymeacoffee.com/button-api/?text=Support this plugin!&emoji=&slug=ezben&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" /></a>
+		`;
 		// Buy me a coffee
 		// User survey + suggestions?
 
@@ -648,11 +684,16 @@ export class SettingsTab extends PluginSettingTab {
 						.onChange(async (value) => {
 							const num = parseInt(value);
 							if (!isNaN(num)) {
-								intensityStops[key] = num;
-								console.log(
-									this.plugin.data.settings.heatmapConfig
-										.intensityStops[key],
-								);
+								const newStops = {
+									...intensityStops,
+									[key]: num,
+								};
+
+								this.plugin.data.settings.heatmapConfig = {
+									...this.plugin.data.settings.heatmapConfig,
+									intensityStops: newStops,
+								};
+
 								await this.plugin.updateAndSaveEverything();
 							}
 						}),

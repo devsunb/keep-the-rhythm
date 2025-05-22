@@ -1,24 +1,14 @@
-// import DailyActivityChart from "@/ui/components/Chart";
-
-// import NumberFlow from "@number-flow/react";
-import { SlotOption, SlotConfig, Unit } from "@/defs/types";
-import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { Tooltip } from "./Tooltip";
-import { setIcon } from "obsidian";
+import { getDateStreaks, getDateBasedOnIndex } from "@/utils/utils";
 import React from "react";
-import { getSlotLabel } from "../texts";
+import { setIcon } from "obsidian";
 import { useState, useEffect, useRef } from "react";
-import { getTotalValueByDate, getTotalValueInDateRange } from "@/db/queries";
-import {
-	formatDate,
-	getLastSevenDays,
-	getLastThirthyDays,
-	getLastYearInDays,
-	getStartOfWeek,
-	getStartOfMonth,
-	getLastDay,
-	getStartOfYear,
-} from "@/utils/dateUtils";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
+
+import { getCurrentCount } from "@/db/queries";
+import { CalculationType } from "@/defs/types";
+import { Tooltip } from "./Tooltip";
+import { getSlotLabel, weekdaysNames } from "../texts";
+import { TargetCount, SlotConfig, Unit } from "@/defs/types";
 import { EVENTS, state } from "@/core/pluginState";
 
 export const Slot = ({
@@ -27,28 +17,70 @@ export const Slot = ({
 	unit,
 	calc,
 	onDelete,
-}: SlotConfig & { onDelete: (index: number) => void }) => {
+	isCodeBlock,
+}: SlotConfig & {
+	onDelete: (index: number) => void;
+	isCodeBlock?: boolean;
+}) => {
 	const [value, setValue] = useState<number | string>(0);
 	const [unitType, setUnitType] = useState<Unit>(unit);
-	const [optionType, setOptionType] = useState<SlotOption>(option);
-	const [calcType, setCalcType] = useState<"TOTAL" | "AVG">(calc);
+	const [optionType, setOptionType] = useState<TargetCount>(option);
+	const [calcMode, setCalcType] = useState<CalculationType>(calc);
 	const [showCalcType, setShowCalcType] = useState<boolean>(true);
-	const [showChart, setShowChart] = useState<boolean>(false);
-	const [chartData, setChartData] = useState<boolean>(false);
+	const [progressValue, setProgressValue] = useState<number>(0);
 
 	const deleteButtonRef = useRef<HTMLButtonElement>(null);
 	const unitButtonRef = useRef<HTMLButtonElement>(null);
 	const typeButtonRef = useRef<HTMLButtonElement>(null);
 	const calcButtonRef = useRef<HTMLButtonElement>(null);
 
-	const slotOptions = Object.values(SlotOption);
-
+	const TargetCounts = Object.values(TargetCount);
 	const plugin = state.plugin;
 
-	const handleCalcClick = () => {
-		const newCalc = calcType == "TOTAL" ? "AVG" : "TOTAL";
+	const unitSupportingText = () => {
+		if (optionType === TargetCount.CURRENT_STREAK) {
+			return "days";
+		} else {
+			return unitType.toLowerCase() + "s";
+		}
+	};
 
-		if (plugin && plugin.data && plugin.data.settings) {
+	/** SETUP BUTTON ICONS USING OBSIDIAN UTILITY */
+	if (calcButtonRef.current) {
+		const icon = calcMode == "TOTAL" ? "chart-spline" : "sigma";
+		setIcon(calcButtonRef.current, icon);
+	}
+	if (unitButtonRef.current) {
+		setIcon(unitButtonRef.current, "case-sensitive");
+	}
+	if (typeButtonRef.current) {
+		setIcon(typeButtonRef.current, "list");
+	}
+	if (deleteButtonRef.current) {
+		setIcon(deleteButtonRef.current, "x");
+	}
+
+	if (calcButtonRef.current) {
+		const icon = calcMode == "TOTAL" ? "chart-spline" : "sigma";
+		setIcon(calcButtonRef.current, icon);
+	}
+	useEffect(() => {
+		setShowCalcType(
+			optionType !== TargetCount.CURRENT_FILE &&
+				optionType !== TargetCount.CURRENT_DAY &&
+				optionType !== TargetCount.LAST_DAY &&
+				optionType !== TargetCount.WHOLE_VAULT &&
+				optionType !== TargetCount.CURRENT_STREAK,
+		);
+	}, [calcMode, optionType]);
+
+	const toggleCalculation = () => {
+		const newCalc =
+			calcMode == CalculationType.TOTAL
+				? CalculationType.AVG
+				: CalculationType.TOTAL;
+
+		if (plugin?.data?.settings) {
 			plugin.data.settings.sidebarConfig.slots[index].calc = newCalc;
 			plugin.quietSave();
 		}
@@ -56,24 +88,20 @@ export const Slot = ({
 		setCalcType(newCalc);
 	};
 
-	const handleUnitClick = () => {
-		const newUnit: Unit = unitType == Unit.WORD ? Unit.CHAR : Unit.WORD;
+	const toggleUnit = () => {
+		const newUnit: Unit = unitType === Unit.WORD ? Unit.CHAR : Unit.WORD;
 
-		if (plugin && plugin.data && plugin.data.settings) {
+		if (plugin?.data?.settings) {
 			plugin.data.settings.sidebarConfig.slots[index].unit = newUnit;
 			plugin.quietSave();
 		}
 		setUnitType(newUnit);
-		// if (plugin && plugin.data && plugin.data.settings) {
-		// 	plugin.data.settings.sidebarConfig.slots[index].unit = unitType;
-		// 	plugin.quietSave();
-		// }
 	};
 
-	const handleTypeClick = () => {
-		const currentIndex = slotOptions.indexOf(optionType);
-		const nextIndex = (currentIndex + 1) % slotOptions.length;
-		const newOption = slotOptions[nextIndex];
+	const toggleSlotType = () => {
+		const currentIndex = TargetCounts.indexOf(optionType);
+		const nextIndex = (currentIndex + 1) % TargetCounts.length;
+		const newOption = TargetCounts[nextIndex];
 
 		if (plugin && plugin.data && plugin.data.settings) {
 			plugin.data.settings.sidebarConfig.slots[index].option = newOption;
@@ -83,191 +111,15 @@ export const Slot = ({
 		setOptionType(newOption);
 	};
 
-	const handleDeleteClick = () => {
-		if (plugin && plugin.data && plugin.data.settings) {
-			const newSlots = plugin.data.settings.sidebarConfig.slots.filter(
-				(_, i) => i !== index,
-			);
+	const updateData = async () => {
+		const v = await getCurrentCount(unitType, optionType, calcMode);
+		if (optionType === TargetCount.CURRENT_DAY) {
+			const newProgress =
+				(v / state.plugin.data.settings.dailyWritingGoal) * 100;
 
-			for (let i = index; i < newSlots.length; i++) {
-				newSlots[i].index = i;
-			}
-
-			plugin.data.settings.sidebarConfig.slots = newSlots;
-			plugin.quietSave();
+			setProgressValue(Math.min(newProgress, 100));
 		}
-	};
-
-	useEffect(() => {
-		setShowCalcType(
-			optionType !== SlotOption.CURRENT_FILE &&
-				optionType !== SlotOption.THIS_DAY &&
-				optionType !== SlotOption.LAST_DAY &&
-				optionType !== SlotOption.WHOLE_VAULT &&
-				optionType !== SlotOption.CURRENT_STREAK,
-		);
-	}, [optionType]);
-
-	useEffect(() => {
-		if (calcButtonRef.current) {
-			const icon = calcType == "TOTAL" ? "chart-spline" : "sigma";
-			setIcon(calcButtonRef.current, icon);
-		}
-	}, [calcType, optionType]);
-
-	useEffect(() => {
-		if (calcButtonRef.current) {
-			const icon = calcType == "TOTAL" ? "chart-spline" : "sigma";
-			setIcon(calcButtonRef.current, icon);
-		}
-		if (unitButtonRef.current) {
-			setIcon(unitButtonRef.current, "case-sensitive");
-		}
-		if (typeButtonRef.current) {
-			setIcon(typeButtonRef.current, "list");
-		}
-		if (deleteButtonRef.current) {
-			setIcon(deleteButtonRef.current, "x");
-		}
-	}, []);
-
-	const updateData = () => {
-		switch (optionType) {
-			case SlotOption.CURRENT_FILE:
-				setShowChart(false);
-				if (unitType == Unit.WORD) {
-					if (state.currentActivity) {
-						setValue(
-							state.currentActivity.wordCountStart +
-								Object.values(
-									state.currentActivity.changes,
-								).reduce((s, change) => s + change.w, 0),
-						);
-					} else {
-						setValue(0);
-					}
-				} else {
-					if (state.currentActivity) {
-						setValue(
-							state.currentActivity.charCountStart +
-								Object.values(
-									state.currentActivity.changes,
-								).reduce((s, change) => s + change.c, 0),
-						);
-					} else {
-						setValue(0);
-					}
-				}
-				break;
-			case SlotOption.THIS_DAY:
-				setShowChart(true);
-
-				getTotalValueByDate(state.today, unitType).then((newVal) => {
-					setValue(newVal);
-				});
-				break;
-			case SlotOption.THIS_WEEK:
-				const thisWeekStart = formatDate(getStartOfWeek(new Date()));
-				const deltaWeekDays =
-					Math.floor(
-						(new Date(state.today).getTime() -
-							new Date(thisWeekStart).getTime()) /
-							(1000 * 3600 * 24),
-					) + 1;
-
-				getTotalValueInDateRange(
-					thisWeekStart,
-					state.today,
-					unitType,
-				).then((total) => {
-					setValue(
-						calcType === "AVG"
-							? Math.round(total / deltaWeekDays)
-							: total,
-					);
-				});
-				break;
-			case SlotOption.THIS_MONTH:
-				const startOfMonth = formatDate(getStartOfMonth(new Date()));
-				const deltaMonthDays =
-					Math.floor(
-						(new Date(state.today).getTime() -
-							new Date(startOfMonth).getTime()) /
-							(1000 * 3600 * 24),
-					) + 1;
-				getTotalValueInDateRange(
-					startOfMonth,
-					state.today,
-					unitType,
-				).then((total) => {
-					setValue(
-						calcType === "AVG"
-							? Math.round(total / deltaMonthDays)
-							: total,
-					);
-				});
-				break;
-			case SlotOption.THIS_YEAR:
-				const startOfYear = formatDate(getStartOfYear(new Date()));
-				const deltaYearDays =
-					Math.floor(
-						(new Date(state.today).getTime() -
-							new Date(startOfYear).getTime()) /
-							(1000 * 3600 * 24),
-					) + 1;
-				getTotalValueInDateRange(
-					startOfYear,
-					state.today,
-					unitType,
-				).then((total) => {
-					setValue(
-						calcType === "AVG"
-							? Math.round(total / deltaYearDays)
-							: total,
-					);
-				});
-				break;
-			case SlotOption.LAST_DAY:
-				const lastDay = formatDate(getLastDay());
-				getTotalValueByDate(lastDay, unitType).then((total) => {
-					setValue(total);
-				});
-				break;
-			case SlotOption.LAST_WEEK:
-				const lastWeek = formatDate(getLastSevenDays());
-				getTotalValueInDateRange(lastWeek, state.today, unitType).then(
-					(total) => {
-						setValue(
-							calcType === "AVG" ? Math.round(total / 7) : total,
-						);
-					},
-				);
-				break;
-			case SlotOption.LAST_MONTH:
-				const lastMonth = formatDate(getLastThirthyDays());
-				getTotalValueInDateRange(lastMonth, state.today, unitType).then(
-					(total) => {
-						setValue(
-							calcType === "AVG" ? Math.round(total / 30) : total,
-						);
-					},
-				);
-				break;
-			case SlotOption.LAST_YEAR:
-				const lastYearDate = formatDate(getLastYearInDays());
-				getTotalValueInDateRange(
-					lastYearDate,
-					state.today,
-					unitType,
-				).then((total) => {
-					setValue(
-						calcType === "AVG" ? Math.round(total / 365) : total,
-					);
-				});
-				break;
-			default:
-				console.warn("Unable to find data", optionType);
-		}
+		setValue(v);
 	};
 
 	useEffect(() => {
@@ -279,71 +131,107 @@ export const Slot = ({
 		return () => {
 			state.off(EVENTS.REFRESH_EVERYTHING, updateData);
 		};
-	}, [unitType, optionType, calcType]);
+	}, [unitType, optionType, calcMode]);
+
+	function isDayCompleted(dayIndex: number) {
+		const date = getDateBasedOnIndex(dayIndex);
+		const data = state.plugin.data.stats?.daysWithCompletedGoal;
+
+		if (data && data?.includes(date)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 	return (
 		<div className="slot">
 			<div id="customID" className="slot__header">
 				<div className="slot__label">{getSlotLabel(optionType)}</div>
-				<div className="slot__buttons">
-					<RadixTooltip.Provider delayDuration={200}>
-						{showCalcType && (
-							<Tooltip
-								content={
-									calcType == "TOTAL"
-										? "Show daily average"
-										: "Show total"
-								}
-							>
+				{!isCodeBlock && (
+					<div className="slot__buttons">
+						<RadixTooltip.Provider delayDuration={200}>
+							{showCalcType && (
+								<Tooltip
+									content={
+										calcMode == "TOTAL"
+											? "Show daily average"
+											: "Show total"
+									}
+								>
+									<button
+										className="KTR-min-button"
+										ref={calcButtonRef}
+										onClick={() => {
+											toggleCalculation();
+										}}
+									></button>
+								</Tooltip>
+							)}
+
+							<Tooltip content="Change Unit">
 								<button
 									className="KTR-min-button"
-									ref={calcButtonRef}
+									ref={unitButtonRef}
 									onClick={() => {
-										handleCalcClick();
+										toggleUnit();
 									}}
 								></button>
 							</Tooltip>
-						)}
-
-						<Tooltip content="Change Unit">
-							<button
-								className="KTR-min-button"
-								ref={unitButtonRef}
-								onClick={() => {
-									handleUnitClick();
-								}}
-							></button>
-						</Tooltip>
-						<Tooltip content="Change Type">
-							<button
-								className="KTR-min-button"
-								ref={typeButtonRef}
-								onClick={() => {
-									handleTypeClick();
-								}}
-							></button>
-						</Tooltip>
-						<Tooltip content="Delete">
-							<button
-								className="KTR-min-button"
-								ref={deleteButtonRef}
-								onClick={() => {
-									onDelete(index);
-								}}
-							></button>
-						</Tooltip>
-					</RadixTooltip.Provider>
-				</div>
+							<Tooltip content="Change Type">
+								<button
+									className="KTR-min-button"
+									ref={typeButtonRef}
+									onClick={() => {
+										toggleSlotType();
+									}}
+								></button>
+							</Tooltip>
+							<Tooltip content="Delete">
+								<button
+									className="KTR-min-button"
+									ref={deleteButtonRef}
+									onClick={() => {
+										onDelete(index);
+									}}
+								></button>
+							</Tooltip>
+						</RadixTooltip.Provider>
+					</div>
+				)}
 			</div>
 			<div className="slot__data">
 				<div className="slot__value">{value.toLocaleString()}</div>
 				<div className="slot__unit">
-					{unitType.toLowerCase() + "s"}
+					{unitSupportingText()}
 					<span className="slot__unit-avg">
-						{showCalcType && calcType == "AVG" ? "/day" : ""}
+						{showCalcType && calcMode == "AVG" ? "/day" : ""}
 					</span>
 				</div>
 			</div>
+			{optionType === TargetCount.CURRENT_DAY && (
+				<div className="today-progress-bar">
+					<div
+						className="progress"
+						style={{
+							width: progressValue + "%",
+						}}
+					></div>
+				</div>
+			)}
+			{optionType === TargetCount.CURRENT_WEEK && (
+				<div className="KTR-week-progress">
+					{weekdaysNames.map((_, index) => (
+						<div
+							key={index}
+							className={
+								"KTR-dot " +
+								(isDayCompleted(index) ? "completed" : "")
+							}
+						></div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 };

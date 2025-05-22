@@ -6,6 +6,7 @@ import KeepTheRhythm from "@/main";
 import { Heatmap } from "./Heatmap";
 import { SlotWrapper } from "./SlotWrapper";
 import { EVENTS, state } from "@/core/pluginState";
+import { Entries } from "./Entries";
 
 interface KTRView {
 	data?: PluginData;
@@ -16,17 +17,10 @@ interface KTRView {
 }
 
 export const KTRView = ({ plugin }: KTRView) => {
-	const [roundedCells, setRoundedCells] = useState(
-		plugin.data.settings.heatmapConfig.roundCells,
+	const [heatmapConfigState, setHeatmapConfigState] = useState(
+		plugin.data.settings.heatmapConfig,
 	);
 
-	const [hideMonthLabels, setHideMonthLabels] = useState(
-		plugin.data.settings.heatmapConfig.hideMonthLabels,
-	);
-
-	const [hideWeekdayLabels, setHideWeekdayLabels] = useState(
-		plugin.data.settings.heatmapConfig.hideWeekdayLabels,
-	);
 	const [slots, setSlots] = useState(
 		plugin.data.settings.sidebarConfig.slots,
 	);
@@ -41,7 +35,10 @@ export const KTRView = ({ plugin }: KTRView) => {
 	);
 
 	const updateData = () => {
+		setHeatmapConfigState(plugin.data.settings.heatmapConfig);
+
 		setSlots(plugin.data.settings.sidebarConfig.slots);
+
 		setShowHeatmap(
 			plugin.data.settings.sidebarConfig.visibility.showHeatmap,
 		);
@@ -49,11 +46,6 @@ export const KTRView = ({ plugin }: KTRView) => {
 			plugin.data.settings.sidebarConfig.visibility.showEntries,
 		);
 		setShowSlots(plugin.data.settings.sidebarConfig.visibility.showSlots);
-		setRoundedCells(plugin.data.settings.heatmapConfig.roundCells);
-		setHideMonthLabels(plugin.data.settings.heatmapConfig.hideMonthLabels);
-		setHideWeekdayLabels(
-			plugin.data.settings.heatmapConfig.hideWeekdayLabels,
-		);
 	};
 
 	useEffect(() => {
@@ -70,21 +62,18 @@ export const KTRView = ({ plugin }: KTRView) => {
 		<div
 			className={`
 				sideBarView 
-				${roundedCells ? "" : "cells-not-rounded"}
-				${hideMonthLabels ? "hide-month-labels" : ""}
-				${hideWeekdayLabels ? "hide-weekday-labels" : ""}
 				`}
 		>
 			<KeyProvider>
 				{showSlots && <SlotWrapper slots={slots} />}
 				{showHeatmap && (
 					<Heatmap
-						heatmapConfig={plugin.data.settings.heatmapConfig}
+						heatmapConfig={heatmapConfigState}
 						query={""}
 						amountOfWeeks={52}
 					/>
 				)}
-				{/* {showEntries && <Entries />} */}
+				{showEntries && <Entries />}
 			</KeyProvider>
 		</div>
 	);

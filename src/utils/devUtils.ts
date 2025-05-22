@@ -26,8 +26,8 @@ export async function mockMonthDailyActivity() {
 
 			changes.push({
 				timeKey: timestamp,
-				w: Math.floor(Math.random() * 200),
-				c: Math.floor(Math.random() * 1000),
+				w: Math.floor(Math.random() * 100),
+				c: Math.floor(Math.random() * 500),
 			});
 		}
 
@@ -38,7 +38,7 @@ export async function mockMonthDailyActivity() {
 		} else if (rand < 0.66) {
 			filePath = `data/${dateStr}/activity.md`;
 		} else {
-			filePath = `archives/${day.getFullYear()}/${day.getMonth() + 1}/day-${day.getDate()}.md`;
+			filePath = `archives/${day.getFullYear()}/${day.getMonth() + 1}/day-${day.getDate()}-mock.md`;
 		}
 
 		activities.push({

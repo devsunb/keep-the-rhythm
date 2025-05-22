@@ -1,34 +1,56 @@
-import {
-	formatDate,
-	mockMonthDailyActivity,
-	sumTimeEntries,
-} from "@/utils/utils";
-import { DailyActivity } from "@/db/db";
-import React, { useEffect, useState } from "react";
-import { EVENTS, state } from "@/core/pluginState";
-import { getActivityByDate } from "@/db/db";
-import { Unit } from "@/defs/types";
+import { deleteActivityFromDate } from "../../db/queries";
+import { Tooltip } from "./Tooltip";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
+import { getFileNameWithoutExtension } from "../../utils/utils";
+import React from "react";
+import { useEffect, useState, useRef } from "react";
+import { formatDate } from "../../utils/dateUtils";
+import { getActivityByDate } from "../../db/queries";
+import { sumTimeEntries } from "../../utils/utils";
+import { state, EVENTS } from "../../core/pluginState";
+import { DailyActivity } from "../../db/types";
+import { Unit } from "../../defs/types";
+import { Notice, setIcon } from "obsidian";
 
-// import type { PluginData } from "../types";
-// import KeepTheRhythm from "../../main";
-
-// interface EntriesProps {
-// 	data: PluginData;
-// 	plugin: KeepTheRhythm;
-// }
-
-export const Entries = ({}) => {
+interface EntriesProps {
+	date?: string;
+}
+export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
+	const [unit, setUnit] = useState<Unit>(Unit.WORD);
 	const [entries, setEntries] = useState<DailyActivity[]>([]);
-	const todayStr = formatDate(new Date());
+
+	const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
+	const handleDeleteEntry = (filePath: string) => {
+		deleteActivityFromDate(filePath, date);
+		state.emit(EVENTS.REFRESH_EVERYTHING);
+	};
 
 	const handleEntriesRefresh = async () => {
-		const fetchedActivities = await getActivityByDate(todayStr);
+		const fetchedActivities = await getActivityByDate(date);
 
+		const pathCounts = new Map<string, number>();
+		for (const activity of fetchedActivities) {
+			if (activity.filePath) {
+				pathCounts.set(
+					activity.filePath,
+					(pathCounts.get(activity.filePath) || 0) + 1,
+				);
+			}
+		}
+
+		const uniqueEntries = fetchedActivities.filter((entry) =>
+			entry.filePath ? pathCounts.get(entry.filePath) === 1 : true,
+		);
 		setEntries(
-			fetchedActivities.filter(
+			uniqueEntries.filter(
 				(entry) => sumTimeEntries(entry, Unit.WORD) != 0,
 			),
 		);
+	};
+
+	const toggleUnit = () => {
+		setUnit(unit == Unit.WORD ? Unit.CHAR : Unit.WORD);
 	};
 
 	useEffect(() => {
@@ -40,65 +62,95 @@ export const Entries = ({}) => {
 		};
 	}, []);
 
+	// return (
+	// 	<div>
+	// 		{entries.map((entry) => (
+	// 			<div key={entry.filePath} className="">
+	// 				<div>TESTANDO 1</div>
+	// 				{entry.filePath} / {sumTimeEntries(entry, Unit.WORD)}
+	// 			</div>
+	// 		))}
+	// 	</div>
+	// );
+
 	return (
-		<div>
-			{entries.map((entry) => (
-				<div key={entry.filePath} className="">
-					{entry.filePath} / {sumTimeEntries(entry, Unit.WORD)}
+		<div className="todayEntries__section">
+			<RadixTooltip.Provider delayDuration={200}>
+				<div className="todayEntries__header">
+					<div className="todayEntries__section-title">
+						{date == state.today
+							? "ENTRIES TODAY"
+							: `ENTRIES (${date})`}
+					</div>
+					<Tooltip content="Toggle Unit">
+						<button
+							className="todayEntries__entry-unit"
+							ref={(el) => el && setIcon(el, "case-sensitive")}
+							onClick={() => toggleUnit()}
+						/>
+					</Tooltip>
 				</div>
-			))}
+				{entries.length > 0 ? (
+					entries.map((entry) => {
+						const delta = sumTimeEntries(entry, unit);
+						const prefix = delta > 0 ? "+" : "";
+
+						return (
+							<div
+								key={entry.filePath}
+								className="todayEntires__list-item"
+							>
+								<span
+									className="todayEntries__file-path"
+									onClick={() => {
+										const file =
+											state.app.vault.getFileByPath(
+												entry.filePath,
+											);
+										if (file) {
+											const leaf =
+												state.app.workspace.getLeaf(
+													"tab",
+												);
+											leaf.openFile(file);
+										} else {
+											new Notice("File not found!");
+										}
+									}}
+								>
+									{getFileNameWithoutExtension(
+										entry.filePath,
+									)}
+								</span>
+								<div className="todayEntries__list-item-right">
+									<span className="todayEntries__word-count">
+										{prefix}
+										{delta.toLocaleString()}
+									</span>
+									<span className="todayEntries_list-item-unit">
+										{" " + unit.toLowerCase() + "s"}
+									</span>
+									<Tooltip content="Delete entry">
+										<button
+											className="todayEntries__delete-button"
+											ref={(el) =>
+												el && setIcon(el, "trash-2")
+											}
+											onClick={() =>
+												handleDeleteEntry(
+													entry.filePath,
+												)
+											}
+										/>
+									</Tooltip>
+								</div>
+							</div>
+						);
+					})
+				) : (
+					<p className="empty-data">No files edited today</p>
+				)}
+			</RadixTooltip.Provider>
 		</div>
 	);
 };
-
-// export const Entries = ({ data }: { data: Stats }) => {
-// 	{
-// 		<div className="todayEntries__section">
-// 			<div className="todayEntries__section-title">TODAY ENTRIES</div>
-// 			{getTodayFiles().length > 0 ? (
-// 				getTodayFiles().map((file) => (
-// 					<div key={file.path} className="todayEntires__list-item">
-// 						<span className="todayEntries__file-path">
-// 							{getFileNameWithoutExtension(file.path)}
-// 						</span>
-// 						<div className="todayEntries__list-item-right">
-// 							<span className="todayEntries__word-count">
-// 								{file.delta > 0
-// 									? `+${file.delta.toLocaleString()}`
-// 									: file.delta.toLocaleString()}{" "}
-// 								words
-// 							</span>
-// 							<button
-// 								className="todayEntries__delete-button"
-// 								onClick={() =>
-// 									plugin.handleDeleteEntry(file.path)
-// 								}
-// 							>
-// 								<svg
-// 									xmlns="http://www.w3.org/2000/svg"
-// 									width="24"
-// 									height="24"
-// 									viewBox="0 0 24 24"
-// 									fill="none"
-// 									stroke="currentColor" // This ensures the icon uses the current text color
-// 									strokeWidth="2" // React uses camelCase for attributes like 'stroke-width'
-// 									strokeLinecap="round"
-// 									strokeLinejoin="round"
-// 									className="svg-icon"
-// 								>
-// 									<path d="M3 6h18" />
-// 									<path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-// 									<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-// 									<line x1="10" y1="11" x2="10" y2="17" />
-// 									<line x1="14" y1="11" x2="14" y2="17" />
-// 								</svg>
-// 							</button>
-// 						</div>
-// 					</div>
-// 				))
-// 			) : (
-// 				<p className="empty-data">No files edited today</p>
-// 			)}
-// 		</div>;
-// 	}
-// };
