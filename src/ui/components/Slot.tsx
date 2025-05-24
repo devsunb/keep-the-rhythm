@@ -127,7 +127,7 @@ export const Slot = ({
 			}
 			setValue(v);
 		} catch (error) {
-			console.log(error);
+			console.error(error);
 		} finally {
 			if (optionType == TargetCount.WHOLE_VAULT) setIsLoading(false);
 		}
@@ -224,16 +224,17 @@ export const Slot = ({
 					</div>
 				</div>
 			)}
-			{optionType === TargetCount.CURRENT_DAY && (
-				<div className="today-progress-bar">
-					<div
-						className="progress"
-						style={{
-							width: progressValue + "%",
-						}}
-					></div>
-				</div>
-			)}
+			{optionType === TargetCount.CURRENT_DAY &&
+				unitType !== Unit.CHAR && (
+					<div className="today-progress-bar">
+						<div
+							className="progress"
+							style={{
+								width: progressValue + "%",
+							}}
+						></div>
+					</div>
+				)}
 			{optionType === TargetCount.CURRENT_WEEK && (
 				<div className="KTR-week-progress">
 					{weekdaysNames.map((_, index) => (
