@@ -1,3 +1,4 @@
+import { formatDate } from "./utils/dateUtils";
 import {
 	Plugin,
 	TFile,
@@ -48,6 +49,55 @@ export default class KeepTheRhythm extends Plugin {
 	private JsonDebounceTimeout: any = null;
 
 	// #region Initialization
+	private async backupDataToVault(data: any) {
+		console.log("Saving backup");
+
+		const folderPath = ".keep-the-rhyhtm";
+		const fileName = `backup-${formatDate(new Date())}.json`;
+		const backupPath = `${folderPath}/${fileName}`;
+		const jsonData = JSON.stringify(data, null, 2);
+
+		const folderExists = await this.app.vault.adapter.exists(folderPath);
+		if (!folderExists) {
+			console.log("No backup folder, creating one...");
+			await this.app.vault.adapter.mkdir(folderPath);
+		}
+
+		// List files in the hidden folder
+		const backups = await this.app.vault.adapter.list(folderPath);
+		// adapter.list returns { files: string[], folders: string[] }
+		const backupFiles = backups.files.filter((f) => f.endsWith(".json"));
+
+		if (data.schema !== "0.2") {
+			console.log("Current schema found, checking backups...");
+			// Compare against all existing backups
+			for (const filePath of backupFiles) {
+				const contents = await this.app.vault.adapter.read(filePath);
+				if (contents === jsonData) {
+					new Notice("KTR: No changes to backup.");
+					return; // Exit early if same content exists
+				}
+			}
+			// No identical backup found, save new one
+			await this.app.vault.adapter.write(backupPath, jsonData);
+			new Notice("KTR: New backup saved.");
+		} else {
+			console.log("Old schema: saving data from previous versions!");
+			if (backupFiles.length === 0) {
+				await this.app.vault.adapter.write(backupPath, jsonData);
+				new Notice("KTR: First backup created.");
+			} else {
+				// Get most recent file by name (sorted descending)
+				const latestFilePath = backupFiles.sort((a, b) =>
+					b.localeCompare(a),
+				)[0];
+				await this.app.vault.adapter.write(latestFilePath, jsonData);
+				new Notice(
+					`KTR: Backup ${latestFilePath.split("/").pop()} updated.`,
+				);
+			}
+		}
+	}
 
 	private async migrateDataFromJSON(loadedData: any) {
 		const previousStats = migrateDataFromOldFormat(loadedData);
@@ -92,6 +142,10 @@ export default class KeepTheRhythm extends Plugin {
 
 		/** Information from source of truth (data.json) */
 		const loadedData = await this.loadData();
+
+		if (loadedData) {
+			await this.backupDataToVault(loadedData);
+		}
 
 		/** Data is only loaded into dexie if it's the correct schema */
 		if (loadedData && loadedData.schema === "0.2") {
@@ -366,6 +420,7 @@ export default class KeepTheRhythm extends Plugin {
 			clearTimeout(this.JsonDebounceTimeout);
 		}
 		this.saveDataToJSON();
+		this.backupDataToVault(this.data);
 
 		await db.dailyActivity.clear();
 	}

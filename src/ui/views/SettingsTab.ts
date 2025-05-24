@@ -1,23 +1,10 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { Heatmap } from "../components/Heatmap";
-import { createRoot } from "react-dom/client";
-import {
-	App,
-	PluginSettingTab,
-	Setting,
-	Modal,
-	DropdownComponent,
-} from "obsidian";
-// import { IntensityConfig, ColorConfig, ThemeColors } from "src/types";
+import { App, PluginSettingTab, Setting, Modal } from "obsidian";
 import {
 	IntensityConfig,
-	ColorConfig,
 	ThemeColors,
 	DEFAULT_SETTINGS,
 	Language,
 	HeatmapColorModes,
-	HeatmapConfig,
 } from "@/defs/types";
 import { state } from "@/core/pluginState";
 
@@ -98,9 +85,50 @@ export class SettingsTab extends PluginSettingTab {
 	}
 
 	async changeColorMode(value: string) {
-		const newConfig = {
-			intensityMode: value.toLowerCase(),
+		const mode = value.toLowerCase();
+		const currentStops =
+			this.plugin.data.settings.heatmapConfig.intensityStops || {};
+
+		// Initialize missing threshold values based on the selected mode
+		const defaultStops = {
+			low: currentStops.low ?? 100,
+			medium: currentStops.medium ?? 500,
+			high: currentStops.high ?? 1000,
 		};
+
+		// Only keep the thresholds needed for the selected mode
+		let intensityStops;
+		switch (mode) {
+			case HeatmapColorModes.SOLID:
+				intensityStops = {
+					low: defaultStops.low,
+					medium: defaultStops.medium, // Keep all for consistency
+					high: defaultStops.high,
+				};
+				break;
+			case HeatmapColorModes.STOPS:
+				intensityStops = {
+					low: defaultStops.low,
+					medium: defaultStops.medium,
+					high: defaultStops.high,
+				};
+				break;
+			case HeatmapColorModes.GRADUAL:
+			case HeatmapColorModes.LIQUID:
+			default:
+				intensityStops = {
+					low: defaultStops.low,
+					medium: defaultStops.medium, // Keep all for consistency
+					high: defaultStops.high,
+				};
+				break;
+		}
+
+		const newConfig = {
+			intensityMode: mode,
+			intensityStops: intensityStops,
+		};
+
 		this.plugin.data.settings.heatmapConfig = {
 			...this.plugin.data.settings.heatmapConfig,
 			...newConfig,
@@ -109,7 +137,6 @@ export class SettingsTab extends PluginSettingTab {
 		await this.plugin.updateAndSaveEverything();
 		this.display();
 	}
-
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -119,8 +146,8 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl).setName("General").setHeading();
 
 		const enabledLanguages =
-			Object.values(this.plugin.data.settings.enabledLanguages) || [];
-		let loadedLanguage;
+			this.plugin.data.settings.enabledLanguages || [];
+		let loadedLanguage: string;
 
 		if (enabledLanguages) {
 			if (enabledLanguages.length === 1) {
@@ -185,9 +212,9 @@ export class SettingsTab extends PluginSettingTab {
 								console.log("other case of langugaa");
 								break;
 						}
-						state.plugin.data.settings.enabledLanguages = {
+						state.plugin.data.settings.enabledLanguages = [
 							...newScripts,
-						};
+						];
 
 						this.plugin.updateAndSaveEverything();
 						this.display();
@@ -474,6 +501,7 @@ export class SettingsTab extends PluginSettingTab {
 				.addText((text) =>
 					text
 						.setValue(intensityStops[key].toString())
+						.setPlaceholder(placeholder)
 						.onChange(async (value) => {
 							const num = parseInt(value);
 							if (!isNaN(num)) {
@@ -481,6 +509,20 @@ export class SettingsTab extends PluginSettingTab {
 									...intensityStops,
 									[key]: num,
 								};
+
+								// const { low, medium, high } = newStops;
+
+								// const isValid =
+								// 	intensityMode === HeatmapColorModes.STOPS
+								// 		? low < medium && medium < high
+								// 		: low < high;
+
+								// if (!isValid) {
+								// 	// new Notice(
+								// 	// 	"Invalid thresholds: low < medium < high must be respected.",
+								// 	// );
+								// 	return;
+								// }
 
 								this.plugin.data.settings.heatmapConfig = {
 									...this.plugin.data.settings.heatmapConfig,

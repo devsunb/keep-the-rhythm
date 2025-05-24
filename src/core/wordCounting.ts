@@ -27,10 +27,10 @@ export function getWordCount(text: string, regex: RegExp): number {
 	}
 }
 
-export function createRegex(enabledLanguages: Language[]): RegExp {
+export function createRegex(langs: Language[]): RegExp {
 	const patterns: string[] = [];
 
-	const charBasedScripts = enabledLanguages.filter((script) =>
+	const charBasedScripts = langs.filter((script) =>
 		["CJK", "JAPANESE", "KOREAN"].includes(script),
 	);
 
@@ -41,7 +41,7 @@ export function createRegex(enabledLanguages: Language[]): RegExp {
 		patterns.push(`[${ranges}]`);
 	}
 
-	const wordBasedScripts = enabledLanguages.filter(
+	const wordBasedScripts = langs.filter(
 		(script) => !["CJK", "JAPANESE", "KOREAN"].includes(script),
 	);
 	if (wordBasedScripts.length > 0) {

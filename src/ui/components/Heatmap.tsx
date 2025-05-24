@@ -233,39 +233,27 @@ const getCellIntensityLevel = (
 	const { low, medium, high } = heatmapConfig.intensityStops;
 
 	switch (heatmapConfig.intensityMode) {
-		/** Gradual is proportional to 100 to avoid decimals */
 		case HeatmapColorModes.GRADUAL:
-			if (count <= low) return 0;
-			if (count >= high) return 100;
-
-			const proportion = (count / high) * 100;
-
-			if (proportion > 100) return 100;
-			return proportion;
-			break;
 		case HeatmapColorModes.LIQUID:
 			if (count <= low) return 0;
 			if (count >= high) return 100;
 
-			const height = (count / high) * 100;
+			return ((count - low) / (high - low)) * 100;
 
-			if (height > 100) return 100;
-			return height;
-			break;
 		case HeatmapColorModes.SOLID:
-			if (count >= low) {
-				return 4;
-			} else {
-				return 0;
-			}
-			break;
-		case HeatmapColorModes.STOPS:
-			if (count <= 0) return 0;
-			if (count < low) return 1;
-			if (count < medium) return 2;
-			if (count < high) return 3;
-			break;
-	}
+			return count >= low ? 4 : 0;
 
-	return 4;
+		case HeatmapColorModes.STOPS:
+			// Ensure thresholds are properly ordered
+			const sortedThresholds = [low, medium, high].sort((a, b) => a - b);
+			const [minThreshold, midThreshold, maxThreshold] = sortedThresholds;
+
+			if (count <= 0) return 0;
+			if (count < minThreshold) return 1;
+			if (count < midThreshold) return 2;
+			if (count < maxThreshold) return 3;
+			return 4;
+		default:
+			return 0;
+	}
 };
