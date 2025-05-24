@@ -114,39 +114,43 @@ export class SettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h3", { text: "Tutorial / guide" });
+		// containerEl.createEl("h3", { text: "Tutorial / guide" });
 
-		containerEl.createEl("hr");
+		new Setting(containerEl).setName("General").setHeading();
 
-		containerEl.createEl("h5", { text: "General" });
+		const enabledLanguages =
+			Object.values(this.plugin.data.settings.enabledLanguages) || [];
+		let loadedLanguage;
+
+		if (enabledLanguages) {
+			if (enabledLanguages.length === 1) {
+				loadedLanguage = "basic";
+			} else if (enabledLanguages.length === 4) {
+				loadedLanguage = "cjk";
+			} else if (enabledLanguages.length > 4) {
+				console.log("full mode");
+				loadedLanguage = "full";
+			} else {
+				loadedLanguage = "basic";
+			}
+		} else {
+			loadedLanguage = "basic";
+		}
 
 		new Setting(containerEl)
-			.setName("Enabled Scripts")
+			.setName("Enabled Languages")
 			.setDesc("Select which writing systems to count")
+			.setClass("ktr-first")
 			.addDropdown((dropdown) => {
 				const scriptOptions = {
 					basic: "Basic (Latin only)",
 					cjk: "CJK Support",
 					full: "Full Unicode",
-					custom: "Custom",
 				};
 
 				dropdown
 					.addOptions(scriptOptions)
-					.setValue(
-						this.plugin.data.settings.enabledScripts
-							? this.plugin.data.settings.enabledScripts === 1
-								? "basic"
-								: this.plugin.data.settings.enabledScripts.includes(
-											"CJK",
-									  )
-									? "cjk"
-									: this.plugin.data.settings.enabledScripts
-												.length > 3
-										? "full"
-										: "custom"
-							: "basic",
-					)
+					.setValue(loadedLanguage)
 					.onChange((value) => {
 						let newScripts: Language[] = [];
 						switch (value) {
@@ -162,6 +166,7 @@ export class SettingsTab extends PluginSettingTab {
 								];
 								break;
 							case "full":
+								console.log("selecting full");
 								newScripts = [
 									"LATIN",
 									"CJK",
@@ -177,10 +182,13 @@ export class SettingsTab extends PluginSettingTab {
 								break;
 							case "custom":
 								/**Add checkboxes for individual scripts*/
+								console.log("other case of langugaa");
 								break;
 						}
-						state.plugin.data.settings.enabledLanguages =
-							newScripts;
+						state.plugin.data.settings.enabledLanguages = {
+							...newScripts,
+						};
+
 						this.plugin.updateAndSaveEverything();
 						this.display();
 					});
@@ -189,7 +197,7 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Writing Goal")
 			.setDesc("Amount of words you intend to write on a day")
-			.setClass("ktr-first")
+
 			.addText((text) =>
 				text
 					.setPlaceholder("500")
@@ -201,7 +209,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		containerEl.createEl("hr");
-		containerEl.createEl("h5", { text: "Sidebar View" });
+		new Setting(containerEl).setName("Sidebar").setHeading();
 
 		new Setting(containerEl)
 			.setName("Show overview")
@@ -329,7 +337,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.createEl("hr");
 
-		containerEl.createEl("h5", { text: "Heatmaps" });
+		new Setting(containerEl).setName("Heatmaps").setHeading();
 
 		new Setting(containerEl)
 			.setName("Coloring Mode")
@@ -357,7 +365,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName("Others").setHeading();
 
-		containerEl.createEl("button").setText("Saw or bug or have feedback?");
+		// containerEl.createEl("button").setText("Saw or bug or have feedback?");
 
 		containerEl.createEl("div").innerHTML = `
 			<a href="https://www.buymeacoffee.com/ezben"><img src="https://img.buymeacoffee.com/button-api/?text=Support this plugin!&emoji=&slug=ezben&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" /></a>
@@ -465,7 +473,6 @@ export class SettingsTab extends PluginSettingTab {
 			setting
 				.addText((text) =>
 					text
-						.setPlaceholder(placeholder)
 						.setValue(intensityStops[key].toString())
 						.onChange(async (value) => {
 							const num = parseInt(value);
