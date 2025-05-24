@@ -86,11 +86,6 @@ export const Heatmap = ({
 				.toArray();
 		}
 
-		// // Apply remaining query conditions in-memory
-		// if (query || query.type !== "BinaryExpresion") {
-
-		// }
-
 		const dateMap: Record<string, number> = {};
 
 		for (const entry of results) {

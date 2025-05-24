@@ -142,7 +142,6 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 												el && setIcon(el, "trash-2")
 											}
 											onMouseDown={async () => {
-												console.log("clicked");
 												await deleteActivityFromDate(
 													entry.filePath,
 													date,

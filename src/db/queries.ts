@@ -300,14 +300,11 @@ export async function getCurrentCount(
 			);
 
 		default:
-			console.log(target);
+			console.info(target);
 			throw new Error("Unsupported target type");
 	}
 
 	const value = await getTotalValueInDateRange(startDate, state.today, unit);
-	if (target == TargetCount.CURRENT_WEEK) {
-		console.log(value, startDate, state.today);
-	}
 	return calc === CalculationType.AVG ? Math.round(value / totalDays) : value;
 }
 

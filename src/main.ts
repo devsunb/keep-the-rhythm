@@ -95,7 +95,6 @@ export default class KeepTheRhythm extends Plugin {
 
 		/** Data is only loaded into dexie if it's the correct schema */
 		if (loadedData && loadedData.schema === "0.2") {
-			console.log("initializing data from json");
 			await this.initializeDataFromJSON(loadedData);
 		} else if (loadedData && loadedData.schema !== "0.2") {
 			new Notice("KTR: Migrating data from previous versions...");
@@ -424,7 +423,6 @@ export default class KeepTheRhythm extends Plugin {
 			dailyActivity: dailyActivityDB,
 		};
 
-		console.log("persisted everything to the JSON!");
 		await this.saveData(this.data);
 	}
 
