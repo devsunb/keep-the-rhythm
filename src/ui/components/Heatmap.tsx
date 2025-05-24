@@ -2,9 +2,6 @@ import React from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { moment as _moment } from "obsidian";
-import { useEffect } from "react";
-
-import { state, EVENTS } from "@/core/pluginState";
 import { weekdaysNames, monthNames } from "../texts";
 import { getDateForCell, sumTimeEntries, log } from "@/utils/utils";
 import { formatDate } from "@/utils/dateUtils";
@@ -91,17 +88,19 @@ export const Heatmap = ({
 
 		// // Apply remaining query conditions in-memory
 		// if (query || query.type !== "BinaryExpresion") {
-		// 	console.log("not binary");
 
 		// }
 
 		const dateMap: Record<string, number> = {};
 
 		for (const entry of results) {
-			dateMap[entry.date] = sumTimeEntries(entry, Unit.WORD);
+			const entryValue = sumTimeEntries(entry, Unit.WORD, true);
+			const valueUntilNow = dateMap[entry.date] || 0;
+			dateMap[entry.date] = valueUntilNow + entryValue;
 		}
 
 		const end = performance.now();
+
 		return dateMap;
 	});
 

@@ -11,15 +11,17 @@ import { formatDate } from "@/utils/dateUtils";
 import { floorMomentToFive } from "@/utils/dateUtils";
 import { moment as _moment } from "obsidian";
 import { emit } from "process";
+import { sumBothTimeEntries } from "@/utils/utils";
 
 const moment = _moment as unknown as typeof _moment.default;
 
 let dbUpdateTimeout: NodeJS.Timeout | null = null;
-const DEBOUNCE_TIME = 500; // ms
+const DEBOUNCE_TIME = 100; // ms
 
 /**
  * @function handleEditorChange
  * Fires everytime the user makes an input inside a Markdown editor;
+ * Is not fired when focused file changes (file-open)
  */
 export async function handleEditorChange(
 	editor: Editor,
@@ -32,18 +34,24 @@ export async function handleEditorChange(
 		return;
 	}
 
-	const activity = state.currentActivity;
+	let activity = state.currentActivity;
 
-	//FIXME: this is creating the bug where two activities are created for the same file
-
-	/** Handle mismatches between state and current opened file */
-	if (!activity) {
-		// await handleFileOpen(info.file);
-		return;
-	} else if (activity?.filePath !== info.file.path) {
-		// await handleFileOpen(info.file);
-		return;
+	/**
+	 * Handle mismatches between state and current opened file
+	 * Only happens if the user is editing stuff really really fast, some of those inputs might be ignored at the start.
+	 * But I think it's okay, there might just be a slight mismatch because of wordCountStart if the file wasn't seen today
+	 * */
+	if (!activity || activity?.filePath !== info.file.path) {
+		// If handleFileOpen is not running (some weird focusing states), make it run and update the activity
+		if (!state.isUpdatingActivity) {
+			await handleFileOpen(info.file);
+			activity = state.currentActivity;
+		} else {
+			return;
+		}
 	}
+
+	if (!activity) return;
 
 	/** Calculate CHAR and WORD deltas based on state  */
 	const currentContent = editor.getValue();
@@ -52,8 +60,7 @@ export async function handleEditorChange(
 		currentContent,
 		plugin.data.settings.enabledLanguages,
 	);
-
-	const currentChanges: TimeEntry[] = state.currentActivity.changes;
+	const newCharCount = currentContent.length;
 
 	/**
 	 * Calculates delta word count based on
@@ -61,27 +68,17 @@ export async function handleEditorChange(
 	 * @var prevWordsAdded: amount of words written today (added across changes[])
 	 * @var newWordCount: current amount of words in the file
 	 */
-	let prevWordsAdded = 0;
-	let prevCharsAdded = 0;
+	const { totalWords, totalChars } = sumBothTimeEntries(activity);
 
-	for (let i = 0; i < currentChanges.length; i++) {
-		prevWordsAdded += currentChanges[i].w;
-		prevCharsAdded += currentChanges[i].c;
-	}
-
-	const wordsAdded =
-		newWordCount - (activity.wordCountStart + prevWordsAdded);
-	const charsAdded =
-		currentContent.length - (activity.charCountStart + prevCharsAdded);
+	const wordsAdded = newWordCount - totalWords;
+	const charsAdded = newCharCount - totalChars;
 
 	/**
 	 * @const lastTimeKey Get's last key saved for this DailyActivity
 	 * @const currentTimeKey Rounds current time to multiples of 5 so data is saved in consistent blocks
 	 * Uses floors so it always rounds down (since you can write words in the future rsrs)
 	 */
-	const changes: TimeEntry[] = state.currentActivity.changes;
-
-	const lastTimeKey = changes[changes.length - 1];
+	const changes: TimeEntry[] = state.currentActivity?.changes || [];
 	const currentTimeKey = floorMomentToFive(moment()).format("HH:mm");
 
 	/**
@@ -106,7 +103,7 @@ export async function handleEditorChange(
 		existingEntry.c += charsAdded;
 	}
 
-	// TODO: update to only refresh today's data
+	// WORKING ON UPDATING JUST TODAY!!!
 	state.emit(EVENTS.REFRESH_EVERYTHING);
 
 	/** Debounces updates to the DB, which only happens when
@@ -114,8 +111,128 @@ export async function handleEditorChange(
 	if (dbUpdateTimeout) clearTimeout(dbUpdateTimeout);
 
 	dbUpdateTimeout = setTimeout(async () => {
-		await flushChangesToDB(state.currentActivity);
+		await flushChangesToDB(state.currentActivity!);
 	}, DEBOUNCE_TIME);
+}
+
+/**
+ * @function handleFileOpen
+ * - Updates the state to match the current opened file
+ * - Creates an activity for the opened file if it doens't exist
+ * - Checks if the day passed to update data (maybe should be somewhere else)
+ */
+
+export async function handleFileOpen(file: TFile) {
+	state.isUpdatingActivity = true;
+	/** Simple check if the day has passed to update everything if it did.*/
+	const today = formatDate(new Date());
+	if (today !== state.today) {
+		state.setToday();
+	}
+
+	/** Return if the file "opened" is the same that was seen last time. */
+	if (file.path == state.currentActivity?.filePath) {
+		return;
+	}
+
+	let entry = await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([state.today, file.path])
+		.first();
+
+	/** File was not yet seen today, create an entry for it */
+	if (!entry) {
+		const content = await state.plugin.app.vault.read(file);
+		const currentWordCount = getLanguageBasedWordCount(
+			content,
+			state.plugin.data.settings.enabledLanguages,
+		);
+
+		entry = {
+			date: state.today,
+			filePath: file.path,
+			wordCountStart: currentWordCount,
+			charCountStart: content.length,
+			changes: [],
+		};
+
+		await db.dailyActivity.add(entry);
+	}
+
+	if (entry) state.setCurrentActivity(entry);
+	state.isUpdatingActivity = false;
+}
+
+/**
+ * @function flushChangesToDB
+ * Debounced function that matches the state to the DB entries;
+ */
+async function flushChangesToDB(activity: DailyActivity) {
+	// TODO: use this globally, making all updates on info real time by using stores but flushing them to the DB ocasionally.
+	// probably here is a good moment to update the STREAK data?
+
+	if (!activity) return;
+
+	await db.dailyActivity
+		.where("[date+filePath]")
+		.equals([activity.date, activity.filePath])
+		.modify((dailyEntry) => {
+			const existingChanges: TimeEntry[] = dailyEntry.changes || [];
+			const currentChanges: TimeEntry[] = activity.changes;
+
+			// Convert existing changes to a map
+			const mergedMap: Record<string, TimeEntry> = {};
+			for (const entry of existingChanges) {
+				mergedMap[entry.timeKey] = { ...entry };
+			}
+
+			for (const entry of currentChanges) {
+				if (mergedMap[entry.timeKey]) {
+					mergedMap[entry.timeKey].w = entry.w;
+					mergedMap[entry.timeKey].c = entry.c;
+				} else {
+					mergedMap[entry.timeKey] = { ...entry };
+				}
+			}
+
+			// Convert map back to array and sort by timeKey
+			dailyEntry.changes = Object.values(mergedMap).sort((a, b) =>
+				a.timeKey.localeCompare(b.timeKey),
+			);
+		});
+
+	checkStreak();
+	state.emit(EVENTS.REFRESH_EVERYTHING);
+}
+
+/**
+ * @function cleanDBTimeout
+ * Clears timeouts and flushed any data on memory to the DB
+ */
+export function cleanDBTimeout() {
+	if (dbUpdateTimeout) {
+		clearTimeout(dbUpdateTimeout);
+	}
+	flushChangesToDB(state.currentActivity!);
+}
+
+/**
+ * @function checkStreak
+ */
+
+async function checkStreak() {
+	const writtenToday = await getCurrentCount(
+		Unit.WORD,
+		TargetCount.CURRENT_DAY,
+	);
+
+	const goal = state.plugin.data?.settings?.dailyWritingGoal || 500;
+
+	if (writtenToday >= goal) {
+		state.plugin.updateCurrentStreak(true);
+	} else {
+		state.plugin.updateCurrentStreak(false);
+	}
 }
 
 /**
@@ -215,121 +332,5 @@ export async function handleFileRename(file: TFile, oldPath: string) {
 		state.emit(EVENTS.REFRESH_EVERYTHING);
 	} catch (error) {
 		console.error(`KTR failed renaming ${file.path} | ${error}`);
-	}
-}
-
-/**
- * @function handleFileOpen
- * - Updates the state to match the current opened file
- * - Creates an activity for the opened file if it doens't exist
- * - Checks if the day passed to update data (maybe should be somewhere else)
- */
-
-export async function handleFileOpen(file: TFile) {
-	const today = formatDate(new Date());
-	if (today !== state.today) {
-		state.setToday(today);
-	}
-
-	if (file.path == state.currentActivity?.filePath) {
-		return;
-	}
-
-	let entry = await db.dailyActivity
-		.where("[date+filePath]")
-		.equals([state.today, file.path])
-		.first();
-
-	// File was not yet seen today
-	if (!entry) {
-		const content = await state.plugin.app.vault.read(file);
-		const currentWordCount = getLanguageBasedWordCount(
-			content,
-			state.plugin.data.settings.enabledLanguages,
-		);
-
-		const id = await db.dailyActivity.add({
-			date: state.today,
-			filePath: file.path,
-			wordCountStart: currentWordCount,
-			charCountStart: content.length,
-			changes: [],
-		});
-
-		entry = await db.dailyActivity.get(id);
-	}
-
-	if (entry) state.setCurrentActivity(entry);
-}
-
-/**
- * @function flushChangesToDB
- * Debounced function that matches the state to the DB entries;
- */
-async function flushChangesToDB(activity: DailyActivity) {
-	// TODO: use this globally, making all updates on info real time by using stores but flushing them to the DB ocasionally.
-	// probably here is a good moment to update the STREAK data?
-
-	if (!activity) return;
-
-	await db.dailyActivity
-		.where("[date+filePath]")
-		.equals([activity.date, activity.filePath])
-		.modify((dailyEntry) => {
-			const existingChanges: TimeEntry[] = dailyEntry.changes || [];
-			const currentChanges: TimeEntry[] = activity.changes;
-
-			// Convert existing changes to a map
-			const mergedMap: Record<string, TimeEntry> = {};
-			for (const entry of existingChanges) {
-				mergedMap[entry.timeKey] = { ...entry };
-			}
-
-			for (const entry of currentChanges) {
-				if (mergedMap[entry.timeKey]) {
-					mergedMap[entry.timeKey].w = entry.w;
-					mergedMap[entry.timeKey].c = entry.c;
-				} else {
-					mergedMap[entry.timeKey] = { ...entry };
-				}
-			}
-
-			// Convert map back to array and sort by timeKey
-			dailyEntry.changes = Object.values(mergedMap).sort((a, b) =>
-				a.timeKey.localeCompare(b.timeKey),
-			);
-		});
-
-	checkStreak();
-	state.emit(EVENTS.REFRESH_EVERYTHING);
-}
-
-/**
- * @function cleanDBTimeout
- * Clears timeouts and flushed any data on memory to the DB
- */
-export function cleanDBTimeout() {
-	if (dbUpdateTimeout) {
-		clearTimeout(dbUpdateTimeout);
-	}
-	flushChangesToDB(state.currentActivity);
-}
-
-/**
- * @function checkStreak
- */
-
-async function checkStreak() {
-	const writtenToday = await getCurrentCount(
-		Unit.WORD,
-		TargetCount.CURRENT_DAY,
-	);
-
-	const goal = state.plugin.data?.settings?.dailyWritingGoal || 500;
-
-	if (writtenToday >= goal) {
-		state.plugin.updateCurrentStreak(true);
-	} else {
-		state.plugin.updateCurrentStreak(false);
 	}
 }

@@ -1,0 +1,3 @@
+- Uses dexie.js for simplified querying language and indexes which improve performance;
+- Source of truth: data.json
+    - Allows for cross device sync without overriding data (requires `onExternalSettingsChange`)

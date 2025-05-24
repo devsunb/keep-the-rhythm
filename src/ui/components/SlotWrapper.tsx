@@ -1,24 +1,12 @@
 import { Notice } from "obsidian";
 import { v4 as uuidv4 } from "uuid";
-import { useAltKey } from "@/utils/useModiferKey";
 import React from "react";
-import { formatDate } from "@/utils/dateUtils";
 import { CalculationType, SlotConfig, TargetCount, Unit } from "@/defs/types";
 import { Slot } from "./Slot";
-import { plugins } from "chart.js";
-import { state, EVENTS } from "@/core/pluginState";
-import { useEffect, useState } from "react";
+import { state } from "@/core/pluginState";
+import { useEffect, useState, useRef } from "react";
 import { TransitionGroup, CSSTransition } from "react-transition-group";
 
-// DISPLAYS DIFFERENT STATS
-// - Toggle between CHAR/WORD count
-// - Daily / Weekly / Monthly / Yearly
-// - Last 7 days, last 30 days, last year (total / avg)
-
-// IDEA: probably give the user three slots and
-// allow them to choose between the options?
-
-// DEFAULT: today count, avg last week, total last 30 days
 interface SlotWrapperProps {
 	slots: SlotConfig[] | undefined;
 	isCodeBlock?: boolean;
@@ -28,6 +16,11 @@ export const SlotWrapper = ({ slots, isCodeBlock }: SlotWrapperProps) => {
 	const [slotsState, setSlotsState] = useState<
 		(SlotConfig & { uuid?: string })[] | undefined
 	>(() => slots?.map((slot) => ({ ...slot, uuid: uuidv4() })));
+
+	// Create refs for each slot to avoid findDOMNode warning
+	const nodeRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement> }>(
+		{},
+	);
 
 	const updateSlots = () => {
 		const currentSettings = state.plugin.data.settings.sidebarConfig.slots;
@@ -71,8 +64,12 @@ export const SlotWrapper = ({ slots, isCodeBlock }: SlotWrapperProps) => {
 		// Call quietSave to persist changes
 		state.plugin.quietSave();
 
-		// Update state with preserved UUIDs
-		setSlotsState(slotsState?.filter((_, i) => i !== index));
+		// Fix: Filter by uuid instead of index to maintain proper transition
+		setSlotsState((prevSlots) => {
+			if (!prevSlots) return prevSlots;
+			const slotToDelete = prevSlots[index];
+			return prevSlots.filter((slot) => slot.uuid !== slotToDelete.uuid);
+		});
 	};
 
 	const handleAddClick = () => {
@@ -103,26 +100,40 @@ export const SlotWrapper = ({ slots, isCodeBlock }: SlotWrapperProps) => {
 		setSlotsState([...(slotsState || []), { ...newSlot, uuid: uuidv4() }]);
 	};
 
+	// Create or get ref for each slot
+	const getNodeRef = (uuid: string) => {
+		if (!nodeRefs.current[uuid]) {
+			nodeRefs.current[uuid] = React.createRef<HTMLDivElement>();
+		}
+		return nodeRefs.current[uuid];
+	};
+
 	return (
 		<div className="slot__section">
 			<TransitionGroup className="slot__list">
-				{slotsState?.map((slot, i) => (
-					<CSSTransition
-						key={slot.uuid}
-						timeout={500}
-						classNames="slot-fade"
-						unmountOnExit
-					>
-						<Slot
-							index={i}
-							option={slot.option}
-							unit={slot.unit}
-							calc={slot.calc}
-							onDelete={handleDeleteClick}
-							isCodeBlock={isCodeBlock}
-						/>
-					</CSSTransition>
-				))}
+				{slotsState?.map((slot, i) => {
+					const nodeRef = getNodeRef(slot.uuid!);
+					return (
+						<CSSTransition
+							key={slot.uuid}
+							timeout={500}
+							classNames="slot-fade"
+							unmountOnExit
+							nodeRef={nodeRef}
+						>
+							<div ref={nodeRef}>
+								<Slot
+									index={i}
+									option={slot.option}
+									unit={slot.unit}
+									calc={slot.calc}
+									onDelete={handleDeleteClick}
+									isCodeBlock={isCodeBlock}
+								/>
+							</div>
+						</CSSTransition>
+					);
+				})}
 			</TransitionGroup>
 			{!isCodeBlock && (
 				<button

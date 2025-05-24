@@ -1,6 +1,7 @@
-import { normalizePath, TFile } from "obsidian";
+import { db } from "@/db/db";
 import { DEFAULT_SETTINGS, PluginData } from "../defs/types";
 import { TimeEntry, DailyActivity } from "../db/types";
+import { state } from "@/core/pluginState";
 
 export type OldFormat = {
 	settings: {
@@ -33,55 +34,97 @@ export type OldFormat = {
 	};
 };
 
-export function convertOldDataToNewFormat(oldData: OldFormat): PluginData {
+export function migrateDataFromOldFormat(oldData: OldFormat): PluginData {
 	const newFormat: PluginData = {
 		settings: DEFAULT_SETTINGS,
 		stats: {
-			fileStats: [],
-			currentStreak: 0,
-			daysWithCompletedGoal: [],
 			dailyActivity: [],
 		},
 	};
 
+	const activityMap = new Map<string, DailyActivity>();
+	const wordCountByDate = new Map<string, number>();
+
 	for (const deviceId in oldData.devices) {
 		const device = oldData.devices[deviceId];
+
 		for (const date in device) {
 			const dayData = device[date];
-			for (const filePath in dayData.files) {
-				const fileData = dayData.files[filePath];
-				const wordDelta = fileData.current - fileData.initial;
+			let dailyTotal = 0;
 
-				if (wordDelta <= 0) continue;
+			// Simple check: if files object exists and has any keys, process files only
+			const hasFileEntries =
+				dayData.files && Object.keys(dayData.files).length > 0;
+
+			if (hasFileEntries) {
+				// Process individual files, ignore totalDelta
+
+				for (const filePath in dayData.files) {
+					const fileData = dayData.files[filePath];
+					const wordDelta = fileData.current - fileData.initial;
+
+					if (wordDelta === 0) continue;
+
+					dailyTotal += wordDelta;
+					const activityKey = `${date}-${filePath}`;
+
+					if (activityMap.has(activityKey)) {
+						const existingActivity = activityMap.get(activityKey)!;
+						existingActivity.changes[0].w += wordDelta;
+					} else {
+						const change: TimeEntry = {
+							timeKey: "12:00",
+							w: wordDelta,
+							c: 0,
+						};
+
+						const activity: DailyActivity = {
+							date,
+							filePath,
+							wordCountStart: fileData.initial,
+							charCountStart: 0,
+							changes: [change],
+						};
+
+						activityMap.set(activityKey, activity);
+					}
+				}
+			} else if (dayData.totalDelta > 0) {
+				// No files or empty files object, but has totalDelta - create recovered-file
+
+				const recoveredFilePath = "recovered-file";
+				const activityKey = `${date}-${recoveredFilePath}`;
 
 				const change: TimeEntry = {
-					timeKey: "00:00",
-					w: wordDelta,
+					timeKey: "12:00",
+					w: dayData.totalDelta,
 					c: 0,
 				};
 
 				const activity: DailyActivity = {
 					date,
-					filePath,
+					filePath: recoveredFilePath,
 					wordCountStart: 0,
-					charCountStart: fileData.initial,
+					charCountStart: 0,
 					changes: [change],
-					id: Math.floor(Math.random() * 1e6), // Use UUID or deterministic hash for real apps
 				};
 
-				newFormat.stats?.dailyActivity.push(activity);
-
-				if (wordDelta >= DEFAULT_SETTINGS.dailyWritingGoal) {
-					newFormat.stats?.daysWithCompletedGoal?.push(date);
-				}
+				activityMap.set(activityKey, activity);
+				dailyTotal += dayData.totalDelta;
 			}
+
+			// Accumulate word count for this date
+			const existingCount = wordCountByDate.get(date) || 0;
+			wordCountByDate.set(date, existingCount + dailyTotal);
 		}
 	}
 
-	return newFormat;
-}
+	const completedDates = Array.from(wordCountByDate.entries())
+		.filter(([_, count]) => count >= DEFAULT_SETTINGS.dailyWritingGoal)
+		.map(([date]) => date);
 
-export async function migrateOnStart(previousData: OldFormat) {
-	const newData = convertOldDataToNewFormat(previousData);
-	return newData;
+	newFormat.stats!.dailyActivity = Array.from(activityMap.values());
+	newFormat.stats!.daysWithCompletedGoal = completedDates;
+
+	return newFormat;
 }

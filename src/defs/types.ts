@@ -1,4 +1,4 @@
-import { DailyActivity, FileStats } from "@/db/types";
+import { DailyActivity } from "@/db/types";
 
 export enum CalculationType {
 	TOTAL = "TOTAL",
@@ -88,17 +88,26 @@ export interface SlotConfig {
 
 export interface PluginData {
 	settings: Settings;
+	migratedPreviousVersion?: boolean;
+	schema?: "0.2";
 	stats?: {
 		currentStreak?: number;
 		highestStreak?: number;
 		highestStreakStartDate?: string;
 		highestStreakEndDate?: string;
-		// TODO; make this work, need to track individual days, its much easier
 		daysWithCompletedGoal?: string[];
-		fileStats: FileStats[];
 		dailyActivity: DailyActivity[];
 	};
 }
+
+export const STARTING_STATS = {
+	currentStreak: 0,
+	highestStreak: 0,
+	highestStreakStartDate: "",
+	highestStreakEndDate: "",
+	daysWithCompletedGoal: [],
+	dailyActivity: [],
+};
 
 export interface HeatmapConfig {
 	intensityMode: HeatmapColorModes;

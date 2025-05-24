@@ -21,10 +21,15 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 
 	const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
-	const handleDeleteEntry = (filePath: string) => {
-		deleteActivityFromDate(filePath, date);
-		state.emit(EVENTS.REFRESH_EVERYTHING);
-	};
+	useEffect(() => {
+		if (
+			deleteButtonRef instanceof HTMLElement &&
+			!deleteButtonRef.dataset.iconSet
+		) {
+			setIcon(deleteButtonRef, "trash-2");
+			deleteButtonRef.dataset.iconSet = "true";
+		}
+	}, [entries]);
 
 	const handleEntriesRefresh = async () => {
 		const fetchedActivities = await getActivityByDate(date);
@@ -44,7 +49,7 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 		);
 		setEntries(
 			uniqueEntries.filter(
-				(entry) => sumTimeEntries(entry, Unit.WORD) != 0,
+				(entry) => sumTimeEntries(entry, Unit.WORD, true) != 0,
 			),
 		);
 	};
@@ -86,13 +91,13 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 						<button
 							className="todayEntries__entry-unit"
 							ref={(el) => el && setIcon(el, "case-sensitive")}
-							onClick={() => toggleUnit()}
+							onMouseDown={toggleUnit}
 						/>
 					</Tooltip>
 				</div>
 				{entries.length > 0 ? (
 					entries.map((entry) => {
-						const delta = sumTimeEntries(entry, unit);
+						const delta = sumTimeEntries(entry, unit, true);
 						const prefix = delta > 0 ? "+" : "";
 
 						return (
@@ -104,12 +109,12 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 									className="todayEntries__file-path"
 									onClick={() => {
 										const file =
-											state.app.vault.getFileByPath(
+											state.plugin.app.vault.getFileByPath(
 												entry.filePath,
 											);
 										if (file) {
 											const leaf =
-												state.app.workspace.getLeaf(
+												state.plugin.app.workspace.getLeaf(
 													"tab",
 												);
 											leaf.openFile(file);
@@ -136,11 +141,16 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 											ref={(el) =>
 												el && setIcon(el, "trash-2")
 											}
-											onClick={() =>
-												handleDeleteEntry(
+											onMouseDown={async () => {
+												console.log("clicked");
+												await deleteActivityFromDate(
 													entry.filePath,
-												)
-											}
+													date,
+												);
+												state.emit(
+													EVENTS.REFRESH_EVERYTHING,
+												);
+											}}
 										/>
 									</Tooltip>
 								</div>

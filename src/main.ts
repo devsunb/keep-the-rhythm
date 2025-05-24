@@ -1,90 +1,140 @@
-import { migrateOnStart } from "./utils/migrateData";
-import { getDateStreaks } from "@/utils/utils";
-import { parseSlotQuery } from "./core/codeBlockQuery";
-import { parseQueryToJSEP } from "./core/codeBlockQuery";
-import { SlotWrapper } from "./ui/components/SlotWrapper";
 import {
 	Plugin,
 	TFile,
 	TAbstractFile,
-	MarkdownView,
 	MarkdownPostProcessorContext,
 	MarkdownRenderChild,
 	Notice,
 } from "obsidian";
-import { v4 as uuidv4 } from "uuid";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
 import {
 	ColorConfig,
 	DEFAULT_SETTINGS,
+	STARTING_STATS,
 	PluginData,
-	TargetCount,
-	Unit,
 } from "@/defs/types";
-import { db } from "@/db/db";
-import { mockMonthDailyActivity } from "./utils/devUtils";
-import { getCurrentCount, removeDuplicatedDailyEntries } from "./db/queries";
-import { EVENTS, state } from "@/core/pluginState";
-import { SettingsTab } from "@/ui/views/SettingsTab";
-import { Heatmap } from "@/ui/components/Heatmap";
+import { removeDuplicatedDailyEntries } from "./db/queries";
 
-import * as utils from "@/utils/utils";
-import * as events from "@/core/events";
+import { db } from "@/db/db";
+import { EVENTS, state } from "@/core/pluginState";
+import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
+
+import { SettingsTab } from "@/ui/views/SettingsTab";
+import { SlotWrapper } from "./ui/components/SlotWrapper";
+import { Heatmap } from "@/ui/components/Heatmap";
 import { Entries } from "./ui/components/Entries";
 
+import { migrateDataFromOldFormat } from "./utils/migrateData";
+import { parseQueryToJSEP, parseSlotQuery } from "./core/codeBlockQuery";
+import * as utils from "@/utils/utils";
+import * as events from "@/core/events";
+import { emit } from "process";
+
 export default class KeepTheRhythm extends Plugin {
-	regex: RegExp;
-	data: PluginData;
-	// deviceId: string;
-	view: PluginView | null;
+	data: PluginData = {
+		schema: "0.2",
+		settings: DEFAULT_SETTINGS,
+		stats: {
+			dailyActivity: [],
+		},
+	};
 	codeBlockRoots: Map<
 		HTMLElement,
 		{ root: any; ctx: MarkdownPostProcessorContext; source: string }
 	> = new Map();
+	private JSON_DEBOUNCE_TIME = 1000;
+	private JsonDebounceTimeout: any = null;
 
 	// #region Initialization
 
-	async onload() {
-		//migrationf
+	private async migrateDataFromJSON(loadedData: any) {
+		const previousStats = migrateDataFromOldFormat(loadedData);
+		this.data.stats = previousStats.stats;
+		this.data.schema = "0.2";
 
-		/** Creates references for STATE usage across React Components */
-		state.setApp(this.app);
-		state.setPlugin(this);
+		if (this.data.stats) {
+			await db.dailyActivity.bulkAdd(this.data.stats.dailyActivity);
+		}
+	}
 
-		/**  Load information from data.json */
-		const loadedData = await this.loadData();
-		if (!loadedData) {
-			this.data = { settings: DEFAULT_SETTINGS };
-			await this.saveData(this.data);
-		} else {
-			/** Check for previous data structures */
-			if (loadedData.devices) {
-				const notice = new Notice(
-					"Migrating data from previous versions",
+	private async initializeDataFromJSON(loadedData: PluginData) {
+		if (loadedData.settings) {
+			this.data.settings = {
+				...DEFAULT_SETTINGS,
+				...loadedData.settings,
+			};
+		}
+		if (loadedData.stats) {
+			this.data.stats = loadedData.stats;
+
+			const dailyActivitiesFromJSON =
+				this.data.stats?.dailyActivity || [];
+
+			try {
+				/** BulkPut updates the records if they already exist! */
+				await db.dailyActivity.bulkPut(dailyActivitiesFromJSON);
+			} catch (error) {
+				console.error(
+					"Failed loading some data, contact the developer.",
+					error,
 				);
-				const migratedData = await migrateOnStart(loadedData);
-				this.data = migratedData;
-			} else {
-				this.data = loadedData;
 			}
 		}
+	}
 
-		if (!this.data.settings) {
-			this.data.settings = DEFAULT_SETTINGS;
-			this.saveData(this.data);
+	async onload() {
+		// #region JSON
+
+		// Sei lá meu :\
+		db.dailyActivity.clear();
+
+		/** Information from source of truth (data.json) */
+		const loadedData = await this.loadData();
+
+		/** Data is only loaded into dexie if it's the correct schema */
+		if (loadedData && loadedData.schema === "0.2") {
+			console.log("initializing data from json");
+			await this.initializeDataFromJSON(loadedData);
+		} else if (loadedData && loadedData.schema !== "0.2") {
+			new Notice("KTR: Migrating data from previous versions...");
+			await this.migrateDataFromJSON(loadedData);
+		} else if (!loadedData) {
+			this.data.schema = "0.2";
+			this.data.stats = {
+				...STARTING_STATS,
+			};
+		} else {
+			this.data.stats = loadedData.stats;
+			this.data.settings = loadedData.settings;
 		}
 
-		/** Set of utility functions that registers required objects and sets plugin state */
-		// this.setDeviceId(); // Sets ID using LOCAL STORAGE if it doesn't exist
-		this.initializeViews(); // Registers plugin SIDEBAR view
-		this.initializeCommands(); // Registers all COMMANDS to obsidian API
+		await this.saveData(this.data);
+
+		// #endregion
+
+		// #region STATE SETUP
+
+		/** Setup state / cache / etc. */
+		state.setPlugin(this);
+		state.setToday();
+
+		// START CACHE SOMEWHERE HERE
+		// START SAVING DATA LOOP / JSON / DEBOUNCE HERE
+		// this.saveDataToJSON();
+
+		// /** Set of utility functions that registers required objects and sets plugin state */
+
+		/** Initialize SIDEBAR view */
+		this.registerView(VIEW_TYPE, (leaf) => {
+			return new PluginView(leaf, this);
+		});
+
+		this.initializeCommands(); // Initialize COMMAND PALETTE options
 		this.initializeEvents(); // Registers all EVENTS to obsidian API
 		this.applyColorStyles(); // Applies color styles (CSS Custom Properties) to app container
 		this.addSettingTab(new SettingsTab(this.app, this)); // Registers the settings tab for plugin configuration
-		state.resetCache();
 
 		/** Registers CUSTOM CODE BLOCKS */
 		this.registerMarkdownCodeBlockProcessor(
@@ -102,35 +152,14 @@ export default class KeepTheRhythm extends Plugin {
 			this.createEntriesCodeBlock(),
 		);
 
-		// TODO: await migrateFromJSON(previousData);
+		state.on(EVENTS.REFRESH_EVERYTHING, async () => {
+			if (this.JsonDebounceTimeout)
+				clearTimeout(this.JsonDebounceTimeout);
 
-		state.on(EVENTS.REFRESH_EVERYTHING, () => {
-			console.log("saving data");
-			this.saveStatsDataToJSON();
+			this.JsonDebounceTimeout = setTimeout(async () => {
+				await this.saveDataToJSON();
+			}, this.JSON_DEBOUNCE_TIME);
 		});
-	}
-
-	// private setDeviceId() {
-	// 	let id = localStorage.getItem("ktr-device-id");
-	// 	if (!id) {
-	// 		id = uuidv4();
-	// 		localStorage.setItem("ktr-device-id", id);
-	// 	}
-	// 	this.deviceId = id;
-	// }
-
-	async activateView() {
-		if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0) {
-			return; // view is already opened
-		}
-
-		const leaf = this.app.workspace.getRightLeaf(false);
-		if (leaf) {
-			await leaf.setViewState({
-				type: VIEW_TYPE,
-				active: true,
-			});
-		}
 	}
 
 	private applyColorStyles() {
@@ -138,7 +167,7 @@ export default class KeepTheRhythm extends Plugin {
 		let light = undefined;
 		let dark = undefined;
 
-		if (this.data.settings.heatmapConfig.colors) {
+		if (this.data.settings?.heatmapConfig?.colors) {
 			light = this.data.settings.heatmapConfig.colors?.light;
 			dark = this.data.settings.heatmapConfig.colors?.dark;
 		}
@@ -260,14 +289,6 @@ export default class KeepTheRhythm extends Plugin {
 			const root = createRoot(container);
 			this.codeBlockRoots.set(el, { root, ctx, source });
 
-			//TODO !!!!!!
-			// This should render a DataView instance
-			// The data view instance should recieve a dataset as prop, I think... Or the filter at leasat
-			// Components also need to recieve this filter so they can properly filter their data sets if there is a filter
-
-			// maybe i should make different code blocks for ENTRIES, HEATMAP and SLOTS
-			// this would make it easier to just pass the filter to each one of them, rather than refactoring DataView.tsx
-
 			root.render(
 				React.createElement(Heatmap, {
 					heatmapConfig: query?.options,
@@ -289,82 +310,6 @@ export default class KeepTheRhythm extends Plugin {
 			return;
 		};
 	}
-	// const filteredStats: Stats = {};
-
-	// Object.entries(this.mergedStats).forEach(([date, dateData]) => {
-	// 	const matchingFiles = Object.entries(dateData.files).filter(
-	// 		([filePath]) => {
-	// 			let includeFile = [];
-	// 			for (const condition of pathConditions) {
-	// 				const pathIncluded = filePath.includes(
-	// 					condition.path,
-	// 				);
-	// 				if (pathIncluded && condition.isInclusion) {
-	// 					includeFile.push(true);
-	// 				} else if (
-	// 					!pathIncluded &&
-	// 					!condition.isInclusion
-	// 				) {
-	// 					includeFile.push(true);
-	// 				} else if (pathIncluded && !condition.isInclusion) {
-	// 					includeFile.push(false);
-	// 				} else if (!pathIncluded && condition.isInclusion) {
-	// 					includeFile.push(false);
-	// 				}
-	// 			}
-	// 			return includeFile.every(
-	// 				(condition) => condition === true,
-	// 			);
-	// 		},
-	// 	);
-
-	// 	if (matchingFiles.length > 0) {
-	// 		const dateDelta = matchingFiles.reduce(
-	// 			(total, [_, fileData]) =>
-	// 				total + (fileData.current - fileData.initial),
-	// 			0,
-	// 		);
-
-	// 		if (dateDelta !== 0) {
-	// 			filteredStats[date] = {
-	// 				totalDelta: dateDelta,
-	// 				files: Object.fromEntries(matchingFiles),
-	// 			};
-	// 		}
-	// 	}
-	// });
-
-	// const container = el.createDiv("heatmap-codeblock");
-	// const root = createRoot(container);
-	// this.codeBlockRoots.set(el, { root, ctx, source });
-
-	// root.render(
-	// 	React.createElement(Heatmap, {
-	// 		data: filteredStats,
-	// 		intensityLevels: this.pluginData.settings.intensityLevels,
-	// 		...toggles,
-	// 		plugin: this,
-	// 	}),
-	// );
-
-	// ctx.addChild(
-	// 	new (class extends MarkdownRenderChild {
-	// 		constructor(containerEl: HTMLElement) {
-	// 			super(containerEl);
-	// 		}
-	// 		onunload() {
-	// 			root.unmount();
-	// 		}
-	// 	})(container),
-	// );
-	// };
-
-	private initializeViews() {
-		this.registerView(VIEW_TYPE, (leaf) => {
-			this.view = new PluginView(leaf, this);
-			return this.view;
-		});
-	}
 
 	private initializeCommands() {
 		this.addRibbonIcon("calendar-days", "Word Count Stats", () => {
@@ -376,44 +321,6 @@ export default class KeepTheRhythm extends Plugin {
 			name: "Open tracking heatmap",
 			callback: () => {
 				this.activateView();
-			},
-		});
-
-		this.addCommand({
-			id: "remove-duplicated-entries",
-			name: "Remove duplicated entries",
-			callback: () => {
-				removeDuplicatedDailyEntries();
-			},
-		});
-
-		this.addCommand({
-			id: "mock-data",
-			name: "Mock data for last month",
-			callback: () => {
-				mockMonthDailyActivity();
-				state.emit(EVENTS.REFRESH_EVERYTHING);
-			},
-		});
-
-		this.addCommand({
-			id: "delete-db",
-			name: "Delete database",
-			callback: () => {
-				db.dailyActivity.clear();
-				db.fileStats.clear();
-				this.updateAndSaveEverything();
-			},
-		});
-
-		this.addCommand({
-			id: "reset-keep-the-rhythm",
-			name: "Reset Settings",
-			callback: () => {
-				this.data.settings = DEFAULT_SETTINGS;
-				this.saveData(this.data);
-				console.log(this.data.settings.sidebarConfig.slots);
-				utils.log("settings reseted");
 			},
 		});
 	}
@@ -455,6 +362,13 @@ export default class KeepTheRhythm extends Plugin {
 
 	async onunload() {
 		events.cleanDBTimeout();
+
+		if (this.JsonDebounceTimeout) {
+			clearTimeout(this.JsonDebounceTimeout);
+		}
+		this.saveDataToJSON();
+
+		await db.dailyActivity.clear();
 	}
 
 	// #endregion
@@ -482,15 +396,19 @@ export default class KeepTheRhythm extends Plugin {
 				) {
 					return;
 				} else {
-					db.dailyActivity.add(activity);
+					db.dailyActivity.put(activity);
 				}
 			});
 
 			/** Assign new external settings*/
 			if (this.data.settings !== newData.settings) {
-				this.data.settings = newData.settings;
+				this.data.settings = {
+					...DEFAULT_SETTINGS,
+					...newData.settings,
+				};
 			}
 
+			state.emit(EVENTS.REFRESH_EVERYTHING);
 			//TODO: ADD "SAVE AND UPDATE" HERE + EMIT UPDATE TO PLUGIN STATE
 		} catch (error) {
 			console.error("Error in onExternalSettingsChange:", error);
@@ -498,6 +416,17 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	// #region SAVING DATA
+
+	private async saveDataToJSON() {
+		const dailyActivityDB = await db.dailyActivity.toArray();
+
+		this.data.stats = {
+			dailyActivity: dailyActivityDB,
+		};
+
+		console.log("persisted everything to the JSON!");
+		await this.saveData(this.data);
+	}
 
 	public async updateCurrentStreak(increase: boolean) {
 		if (!this.data.stats) return;
@@ -508,12 +437,9 @@ export default class KeepTheRhythm extends Plugin {
 			this.data.stats.daysWithCompletedGoal = [];
 		}
 
-		const { longestStreak, currentStreak } = getDateStreaks(
+		const { longestStreak, currentStreak } = utils.getDateStreaks(
 			this.data.stats.daysWithCompletedGoal,
 		);
-
-		console.log(longestStreak + " longest streak");
-		console.log(currentStreak + " current streak");
 
 		if (increase) {
 			if (this.data.stats.daysWithCompletedGoal.includes(state.today)) {
@@ -528,8 +454,6 @@ export default class KeepTheRhythm extends Plugin {
 				this.data.stats.daysWithCompletedGoal = newArray;
 			}
 		}
-
-		state.emit(EVENTS.REFRESH_EVERYTHING);
 	}
 
 	public async updateAndSaveEverything() {
@@ -538,24 +462,47 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	public async quietSave() {
-		console.log("saving to json");
 		await this.saveData(this.data);
 	}
 
-	private async saveStatsDataToJSON() {
-		// const start = performance.now();
-		const fileStats = await db.fileStats.toArray();
-		const dailyActivity = await db.dailyActivity.toArray();
+	private async saveTodayDataToJSON() {
+		const start = performance.now();
+		const dailyActivity = await db.dailyActivity
+			.where("date")
+			.equals(state.today)
+			.toArray();
 
+		// Merge with existing data rather than overwriting
 		this.data.stats = {
-			fileStats: fileStats,
-			dailyActivity: dailyActivity,
+			...this.data.stats,
+			dailyActivity: [
+				...(this.data.stats?.dailyActivity?.filter(
+					(a) => a.date !== state.today,
+				) || []),
+				...dailyActivity,
+			],
 		};
 
-		await this.saveData(this.data);
-		// const end = performance.now();
-		// utils.log(`${end - start}`);
+		const end = performance.now();
+		//     await this.saveData(this.data);
 	}
 
 	// #endregion
+
+	/**
+	 * @function activateView opens the SIDEBAR plugin view
+	 */
+	async activateView() {
+		// Return if view already exists
+		if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0) return;
+
+		// Get the leaf and focus on it
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (leaf) {
+			await leaf.setViewState({
+				type: VIEW_TYPE,
+				active: true,
+			});
+		}
+	}
 }

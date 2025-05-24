@@ -2,7 +2,7 @@ import { getDateStreaks } from "@/utils/utils";
 import { db } from "./db";
 import { Language, Unit, TargetCount, CalculationType } from "../defs/types";
 import { formatDate } from "@/utils/dateUtils";
-import { state } from "@/core/pluginState";
+import { EVENTS, state } from "@/core/pluginState";
 import {
 	getStartOfMonth,
 	getStartOfWeek,
@@ -12,6 +12,7 @@ import { sumTimeEntries } from "@/utils/utils";
 import { DailyActivity } from "./types";
 import { moment as _moment, debounce, Notice, Vault } from "obsidian";
 import { getFileWordAndCharCount } from "@/utils/utils";
+import { handleFileOpen } from "@/core/events";
 const moment = _moment as unknown as typeof _moment.default;
 
 export async function getActivityByDate(date: string) {
@@ -37,7 +38,7 @@ export async function getTotalValueByDate(
 		.toArray();
 
 	let value = activities.reduce((sum, activity) => {
-		return sum + sumTimeEntries(activity, unit);
+		return sum + sumTimeEntries(activity, unit, true);
 	}, 0);
 
 	return value || 0;
@@ -54,7 +55,7 @@ export async function getTotalValueInDateRange(
 		.toArray();
 
 	let value = activities.reduce((sum, activity) => {
-		return sum + sumTimeEntries(activity, unit);
+		return sum + sumTimeEntries(activity, unit, true);
 	}, 0);
 
 	return value;
@@ -196,9 +197,7 @@ export async function getWholeVaultCount(
 	vault: Vault,
 	enabledLanguages: Language[],
 ) {
-	const start = performance.now();
 	const files = vault.getMarkdownFiles();
-
 	let sum = 0;
 
 	for (let i = 0; i < files.length; i++) {
@@ -214,8 +213,6 @@ export async function getWholeVaultCount(
 			sum += fileWordCount;
 		}
 	}
-
-	console.log("read the entire vault in " + (performance.now() - start));
 	return sum;
 }
 
@@ -225,9 +222,11 @@ export async function getCurrentCount(
 	calc?: CalculationType,
 ): Promise<number> {
 	if (target === TargetCount.CURRENT_FILE) {
-		const countStart = state?.currentActivity?.wordCountStart || 0;
-		const countWritten = sumTimeEntries(state?.currentActivity, unit) || 0;
-		return countStart + countWritten;
+		if (state.currentActivity) {
+			return sumTimeEntries(state?.currentActivity, unit) || 0;
+		} else {
+			return 0;
+		}
 	}
 
 	let startDate: string;
@@ -296,15 +295,9 @@ export async function getCurrentCount(
 		case TargetCount.WHOLE_VAULT:
 			return await debouncedVaultCountRead(
 				unit,
-				state.app.vault,
+				state.plugin.app.vault,
 				state.plugin.data.settings.enabledLanguages,
 			);
-		// return state.currentVaultCount;
-		// return getWholeVaultCount(
-		// 	unit,
-		// 	state.app.vault,
-		// 	state.plugin.data.settings.enabledLanguages,
-		// );
 
 		default:
 			console.log(target);
@@ -312,6 +305,9 @@ export async function getCurrentCount(
 	}
 
 	const value = await getTotalValueInDateRange(startDate, state.today, unit);
+	if (target == TargetCount.CURRENT_WEEK) {
+		console.log(value, startDate, state.today);
+	}
 	return calc === CalculationType.AVG ? Math.round(value / totalDays) : value;
 }
 
@@ -347,7 +343,9 @@ export const deleteActivityFromDate = async (
 	filePath: string,
 	date: string,
 ) => {
-	console.log("deleting");
+	if (filePath == state.currentActivity?.filePath) {
+		state.setCurrentActivity(null);
+	}
 
 	const entry = await db.dailyActivity
 		.where("[date+filePath]")
@@ -355,9 +353,8 @@ export const deleteActivityFromDate = async (
 		.first();
 
 	if (entry?.id) {
-		db.dailyActivity.update(entry.id, {
-			changes: [],
-		});
+		db.dailyActivity.delete(entry.id);
+		state.emit(EVENTS.REFRESH_EVERYTHING);
 	} else {
 		const notice = new Notice(
 			"Failed to delete this entry! This is a bug, contact the developer.",

@@ -95,15 +95,40 @@ export function getRandomInt(min: number, max: number) {
 	return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
 }
 
+export function sumBothTimeEntries(activity: DailyActivity): {
+	totalWords: number;
+	totalChars: number;
+} {
+	let totalWords = 0;
+	let totalChars = 0;
+
+	totalWords += activity.wordCountStart || 0;
+	totalChars += activity.charCountStart || 0;
+
+	for (const entry of activity.changes) {
+		totalWords += entry.w;
+	}
+	for (const entry of activity.changes) {
+		totalChars += entry.c;
+	}
+
+	return { totalWords, totalChars };
+}
+
 export function sumTimeEntries(
 	dailyActivity: DailyActivity,
 	unit: Unit,
+	excludeStart?: boolean,
 ): number {
 	let total = 0;
 
 	switch (unit) {
 		case Unit.WORD:
-			total += dailyActivity?.wordCountStart || 0;
+			if (!excludeStart) {
+				total += dailyActivity?.wordCountStart || 0;
+			} else {
+				total = 0;
+			}
 			if (!dailyActivity?.changes) break;
 
 			for (const entry of dailyActivity.changes) {
@@ -111,7 +136,11 @@ export function sumTimeEntries(
 			}
 			break;
 		case Unit.CHAR:
-			total += dailyActivity?.charCountStart || 0;
+			if (!excludeStart) {
+				total += dailyActivity?.wordCountStart || 0;
+			} else {
+				total = 0;
+			}
 			if (!dailyActivity?.changes) break;
 
 			for (const entry of dailyActivity.changes) {
@@ -232,4 +261,15 @@ export function getDateBasedOnIndex(index: number) {
 	const today = moment();
 	const monday = today.clone().startOf("isoWeek"); // isoWeek starts on Monday
 	return monday.clone().add(index, "days").format("YYYY-MM-DD");
+}
+export function debounce<T extends (...args: any[]) => void>(
+	func: T,
+	delay: number,
+): T {
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	return function (this: any, ...args: Parameters<T>) {
+		if (timeoutId) clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => func.apply(this, args), delay);
+	} as T;
 }

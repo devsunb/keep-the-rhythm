@@ -15,9 +15,6 @@
 		opacity: 1;
 		width: fit-content;
 	}
-	&:not(:first-child) {
-		margin-top: 4px;
-	}
 }
 
 .slot__section {
@@ -33,6 +30,20 @@
 	width: 100%;
 	display: flex;
 	flex-direction: column;
+
+	> *:not(:first-child) {
+		margin-top: 4px;
+	}
+}
+
+.block-language-ktr-slots .slot__list {
+	> *:not(:first-child) {
+		margin-top: 0px;
+		height: 100%;
+		> * {
+			height: 100%;
+		}
+	}
 }
 
 .slot__header {
@@ -107,13 +118,13 @@
 */
 .slot-fade-enter-active {
 	overflow: hidden;
-	animation: fade-in 500ms forwards;
+	animation: slot-fade-in 500ms forwards;
 	animation-timing-function: var(--spring-easing);
 }
 
 .slot-fade-exit-active {
 	overflow: hidden;
-	animation: fade-out 500ms forwards;
+	animation: slot-fade-out 500ms forwards;
 	animation-timing-function: var(--spring-easing);
 }
 
@@ -212,7 +223,11 @@ button.KTR-add-slot-button {
 }
 
 .KTR-week-progress {
-	--color: color-mix(in oklch, var(--background-secondary), white 15%);
+	--color: color-mix(
+		in oklch,
+		var(--background-secondary),
+		var(--text-normal) 15%
+	);
 	display: flex;
 	gap: 4px;
 	margin-top: 8px;
@@ -230,5 +245,76 @@ button.KTR-add-slot-button {
 				var(--light-4)
 			);
 		}
+	}
+}
+
+@keyframes slot-fade-in {
+	from {
+		opacity: 0;
+		max-height: 0px;
+		padding-top: 0px;
+		padding-bottom: 0px;
+		border-top: 0px;
+		border-bottom: 0px;
+		filter: blur(8px);
+		scale: 0.8;
+	}
+	to {
+		opacity: 1;
+		max-height: 150px;
+	}
+}
+
+@keyframes slot-fade-out {
+	from {
+		max-height: 150px;
+	}
+	to {
+		opacity: 0;
+		max-height: 0px;
+		filter: blur(8px);
+		padding-top: 0px;
+		padding-bottom: 0px;
+		border-top: 0px;
+		border-bottom: 0px;
+		scale: 0.8;
+		margin-top: 0px;
+	}
+}
+
+.slot__data-loading {
+	background: linear-gradient(
+		90deg,
+		#666 0%,
+		#666 40%,
+		#ccc 50%,
+		#666 60%,
+		#666 100%
+	);
+	background-size: 200% 100%;
+	background-clip: text;
+	animation:
+		wave-gradient 2s ease-in-out infinite,
+		fade-in 500ms ease forwards;
+
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
+
+@keyframes wave-gradient {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
 	}
 }

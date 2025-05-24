@@ -22,12 +22,16 @@ export const Slot = ({
 	onDelete: (index: number) => void;
 	isCodeBlock?: boolean;
 }) => {
+	// TODO: should probably make something that stores data that's not from today so its only udpated on refresh everything!
+
 	const [value, setValue] = useState<number | string>(0);
 	const [unitType, setUnitType] = useState<Unit>(unit);
 	const [optionType, setOptionType] = useState<TargetCount>(option);
 	const [calcMode, setCalcType] = useState<CalculationType>(calc);
 	const [showCalcType, setShowCalcType] = useState<boolean>(true);
 	const [progressValue, setProgressValue] = useState<number>(0);
+	const [dataBeforeToday, setDataBeforeToday] = useState<number>(0);
+	const [isLoading, setIsLoading] = useState<boolean>(false);
 
 	const deleteButtonRef = useRef<HTMLButtonElement>(null);
 	const unitButtonRef = useRef<HTMLButtonElement>(null);
@@ -112,14 +116,21 @@ export const Slot = ({
 	};
 
 	const updateData = async () => {
-		const v = await getCurrentCount(unitType, optionType, calcMode);
-		if (optionType === TargetCount.CURRENT_DAY) {
-			const newProgress =
-				(v / state.plugin.data.settings.dailyWritingGoal) * 100;
+		if (optionType == TargetCount.WHOLE_VAULT) setIsLoading(true);
+		try {
+			const v = await getCurrentCount(unitType, optionType, calcMode);
+			if (optionType === TargetCount.CURRENT_DAY) {
+				const newProgress =
+					(v / state.plugin.data.settings.dailyWritingGoal) * 100;
 
-			setProgressValue(Math.min(newProgress, 100));
+				setProgressValue(Math.min(newProgress, 100));
+			}
+			setValue(v);
+		} catch (error) {
+			console.log(error);
+		} finally {
+			if (optionType == TargetCount.WHOLE_VAULT) setIsLoading(false);
 		}
-		setValue(v);
 	};
 
 	useEffect(() => {
@@ -200,15 +211,19 @@ export const Slot = ({
 					</div>
 				)}
 			</div>
-			<div className="slot__data">
-				<div className="slot__value">{value.toLocaleString()}</div>
-				<div className="slot__unit">
-					{unitSupportingText()}
-					<span className="slot__unit-avg">
-						{showCalcType && calcMode == "AVG" ? "/day" : ""}
-					</span>
+			{isLoading ? (
+				<div className="slot__data-loading">Loading...</div>
+			) : (
+				<div className="slot__data">
+					<div className="slot__value">{value.toLocaleString()}</div>
+					<div className="slot__unit">
+						{unitSupportingText()}
+						<span className="slot__unit-avg">
+							{showCalcType && calcMode == "AVG" ? "/day" : ""}
+						</span>
+					</div>
 				</div>
-			</div>
+			)}
 			{optionType === TargetCount.CURRENT_DAY && (
 				<div className="today-progress-bar">
 					<div

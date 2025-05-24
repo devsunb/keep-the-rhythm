@@ -49,18 +49,22 @@ export const HeatmapCell = ({
 
 		notePath += ".md";
 
-		const existingFile = state.app.vault.getAbstractFileByPath(notePath);
+		const existingFile =
+			state.plugin.app.vault.getAbstractFileByPath(notePath);
 
 		if (existingFile instanceof obsidian.TFile) {
-			const existingLeaf = getLeafWithFile(state.app, existingFile);
+			const existingLeaf = getLeafWithFile(
+				state.plugin.app,
+				existingFile,
+			);
 			if (existingLeaf) {
-				state.app.workspace.setActiveLeaf(existingLeaf);
+				state.plugin.app.workspace.setActiveLeaf(existingLeaf);
 			} else {
-				state.app.workspace.getLeaf(true).openFile(existingFile);
+				state.plugin.app.workspace.getLeaf(true).openFile(existingFile);
 			}
 		} else {
-			const newFile = await state.app.vault.create(notePath, "");
-			await state.app.workspace.getLeaf(true).openFile(newFile);
+			const newFile = await state.plugin.app.vault.create(notePath, "");
+			await state.plugin.app.workspace.getLeaf(true).openFile(newFile);
 		}
 	};
 

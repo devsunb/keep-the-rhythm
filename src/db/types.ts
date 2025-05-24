@@ -1,15 +1,3 @@
-export interface FileStats {
-	id?: number;
-	path: string;
-	filename: string;
-	wordCount: number;
-	charCount?: number;
-	created?: Date;
-	deleted?: Date;
-	lastModified: Date;
-	timesOpened: number;
-}
-
 export interface DailyActivity {
 	id?: number;
 	date: string;
