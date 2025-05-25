@@ -335,7 +335,6 @@ export default class KeepTheRhythm extends Plugin {
 			// if (source.trim() !== "") return
 
 			const query = parseQueryToJSEP(source.trim());
-
 			if (!query?.options) return;
 
 			const container = el.createDiv("heatmap-codeblock");

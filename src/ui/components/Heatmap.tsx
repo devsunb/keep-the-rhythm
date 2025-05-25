@@ -42,7 +42,7 @@ export const Heatmap = ({
 			}
 		}
 
-		let results;
+		let results: DailyActivity[] | null;
 		let filterFn: ((entry: DailyActivity) => boolean) | null = null;
 		if (query) {
 			try {
@@ -53,25 +53,25 @@ export const Heatmap = ({
 		}
 
 		if (
-			query &&
-			query.type == "BinaryExpression" &&
-			query.operator === "starts_with"
+			query?.type == "BinaryExpression" &&
+			query?.operator === "starts_with"
 		) {
 			let value = query.right.value;
 			if (typeof value === "string") {
 				value = value.startsWith("/") ? value.substring(1) : value;
+				results = await db.dailyActivity
+					.where("[filePath+date]")
+					.between(
+						[value, startDate],
+						[value + "\uffff", endDate],
+						true,
+						true,
+					)
+					.toArray();
+			} else {
+				results = [];
 			}
-
-			results = await db.dailyActivity
-				.where("[filePath+date]")
-				.between(
-					[value, startDate],
-					[value + "\uffff", endDate],
-					true,
-					true,
-				)
-				.toArray();
-		} else if (query) {
+		} else if (query && filterFn) {
 			results = await db.dailyActivity
 				.where("date")
 				.anyOf([...requiredDates])

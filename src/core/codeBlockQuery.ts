@@ -9,7 +9,6 @@ import {
 } from "@/utils/utils";
 import { SlotConfig, TargetCount, Unit, CalculationType } from "@/defs/types";
 import { state } from "./pluginState";
-jsep.addBinaryOp("starts_with", 6);
 
 export function parseSlotQuery(query: string): SlotConfig[] {
 	// returns a SlotConfig[]?
@@ -50,6 +49,12 @@ export function parseSlotQuery(query: string): SlotConfig[] {
 }
 
 export function parseQueryToJSEP(query: string) {
+	// Configure jsep with custom operators
+	jsep.addBinaryOp("starts_with", 6);
+	jsep.addBinaryOp("STARTS_WITH", 6);
+	jsep.addBinaryOp("contains", 6);
+	jsep.addBinaryOp("CONTAINS", 6);
+
 	const { filterText, optionsText } = splitFilterAndOptions(query);
 	let normalized = normalizeLogicalOperators(filterText);
 
@@ -60,74 +65,81 @@ export function parseQueryToJSEP(query: string) {
 	config.hideMonthLabels = false;
 	config.hideWeekdayLabels = false;
 
-	if (filterText) {
-		parsed = jsep(normalized);
+	if (filterText && filterText.trim()) {
+		try {
+			parsed = jsep(normalized);
+		} catch (error) {
+			console.error("Error parsing filter expression:", error);
+			console.error("Normalized query:", normalized);
+			// Return a valid but empty filter that matches everything
+			parsed = null;
+		}
 	}
 
 	if (optionsText) {
-		const arrayOfLines = query.match(/[^\r\n]+/g);
-		if (!arrayOfLines || (arrayOfLines && arrayOfLines.length < 1)) return;
+		const arrayOfLines = optionsText.match(/[^\r\n]+/g);
+		if (arrayOfLines && arrayOfLines.length >= 1) {
+			/** defaults to user settings to define heatmapconfig */
 
-		/** defaults to user settings to define heatmapconfig */
+			for (let i = 0; i < arrayOfLines.length; i++) {
+				const line = arrayOfLines[i];
+				const firstSpace = line.indexOf(" ");
+				let keyword;
+				let details;
 
-		for (let i = 0; i < arrayOfLines?.length; i++) {
-			const line = arrayOfLines[i];
-			const firstSpace = line.indexOf(" ");
-			let keyword;
-			let details;
+				if (firstSpace !== -1) {
+					keyword = line.slice(0, firstSpace);
+					details = line.slice(firstSpace + 1);
+				} else {
+					keyword = line;
+					details = "";
+				}
 
-			if (firstSpace !== -1) {
-				keyword = line.slice(0, firstSpace);
-				details = line.slice(firstSpace + 1);
-			} else {
-				keyword = line;
-				details = "";
-			}
-
-			switch (keyword) {
-				case "OPTIONS":
-					break;
-				case "HIDE":
-					if (details) {
-						const items = details.replace(/ /g, "").split(",");
-						for (let i = 0; i < items.length; i++) {
-							switch (items[i]) {
-								case "month_labels":
-									config.hideMonthLabels = true;
-									break;
-								case "weekday_labels":
-									config.hideWeekdayLabels = true;
-									break;
+				switch (keyword) {
+					case "OPTIONS":
+						break;
+					case "HIDE":
+						if (details) {
+							const items = details.replace(/ /g, "").split(",");
+							for (let j = 0; j < items.length; j++) {
+								switch (items[j]) {
+									case "month_labels":
+										config.hideMonthLabels = true;
+										break;
+									case "weekday_labels":
+										config.hideWeekdayLabels = true;
+										break;
+								}
 							}
 						}
-					}
-					break;
-				case "COLORING_MODE":
-					if (details && isValidColoringMode(details.trim())) {
-						config.intensityMode = details as HeatmapColorModes;
-					}
-					break;
-				case "STOPS":
-					if (details) {
-						const stops = details.replace(/ /g, "").split(",");
-						if (stops.length == 1) {
-							config.intensityStops.high = Number(stops[0]);
-						} else if (stops.length == 2) {
-							config.intensityStops.low = Number(stops[0]);
-							config.intensityStops.high = Number(stops[1]);
-						} else if (stops.length == 3) {
-							config.intensityStops.low = Number(stops[0]);
-							config.intensityStops.medium = Number(stops[1]);
-							config.intensityStops.high = Number(stops[2]);
+						break;
+					case "COLORING_MODE":
+						if (details && isValidColoringMode(details.trim())) {
+							config.intensityMode = details as HeatmapColorModes;
 						}
-					}
-					break;
-				case "SQUARED_CELLS":
-					config.roundCells = false;
-					break;
-				case "ROUNDED_CELLS":
-					config.roundCells = true;
-					break;
+						break;
+					case "STOPS":
+						if (details) {
+							const stops = details.replace(/ /g, "").split(",");
+							if (stops.length == 1) {
+								config.intensityStops.high = Number(stops[0]);
+							} else if (stops.length == 2) {
+								config.intensityStops.low = Number(stops[0]);
+								config.intensityStops.high = Number(stops[1]);
+							} else if (stops.length == 3) {
+								config.intensityStops.low = Number(stops[0]);
+								config.intensityStops.medium = Number(stops[1]);
+								config.intensityStops.high = Number(stops[2]);
+							}
+						}
+						break;
+					case "SQUARED_CELLS":
+						config.roundCells = false;
+						break;
+					case "ROUNDED_CELLS":
+						config.roundCells = true;
+						break;
+				}
 			}
 		}
 	}
@@ -143,23 +155,49 @@ function normalizeLogicalOperators(input: string): string {
 }
 
 export function compileEvaluator(node: any): (entry: DailyActivity) => boolean {
-	const code = generateCode(node);
+	// If no filter node, return a function that accepts everything
+	if (!node) {
+		return () => true;
+	}
 
-	return new Function("entry", `return ${code};`) as (
-		entry: DailyActivity,
-	) => boolean;
+	try {
+		const code = generateCode(node);
+		const evaluatorFn = new Function(
+			"entry",
+			`
+			try {
+				return ${code};
+			} catch (error) {
+				console.error("Filter evaluation error:", error);
+				return false;
+			}
+		`,
+		) as (entry: DailyActivity) => boolean;
+
+		return evaluatorFn;
+	} catch (error) {
+		console.error("Error compiling evaluator:", error);
+		return () => true;
+	}
 }
 
-function generateCode(node: any): string {
+export function generateCode(node: any): string {
+	if (!node) {
+		return "true";
+	}
+
+	console.log(node);
 	switch (node.type) {
 		case "Literal":
 			let value = node.value;
 			if (typeof value === "string") {
+				// Handle regex-like strings by removing leading slash
 				value = value.startsWith("/") ? value.substring(1) : value;
 			}
 			return JSON.stringify(value);
 		case "Identifier":
-			return `entry.${node.name}`;
+			// Ensure the property exists on entry object
+			return `(entry && entry.${node.name} !== undefined ? entry.${node.name} : "")`;
 		case "BinaryExpression":
 			let left = generateCode(node.left);
 			let right = generateCode(node.right);
@@ -170,28 +208,49 @@ function generateCode(node: any): string {
 				case "||":
 					return `(${left} || ${right})`;
 				case "starts_with":
-					return `(${left}.startsWith(${right}))`;
+					return `(String(${left}).startsWith(String(${right})))`;
+				case "STARTS_WITH":
+					return `(String(${left}).startsWith(String(${right})))`;
 				case "contains":
-					return `(${left}.includes(${right}))`;
+					return `(String(${left}).includes(String(${right})))`;
+				case "CONTAINS":
+					return `(String(${left}).includes(String(${right})))`;
 				case "==":
 					return `(${left} === ${right})`;
 				case "!=":
 					return `(${left} !== ${right})`;
 				case ">":
-					return `(${left} > ${right})`;
+					return `(Number(${left}) > Number(${right}))`;
 				case "<":
-					return `(${left} < ${right})`;
+					return `(Number(${left}) < Number(${right}))`;
+				case ">=":
+					return `(Number(${left}) >= Number(${right}))`;
+				case "<=":
+					return `(Number(${left}) <= Number(${right}))`;
 				default:
-					throw new Error(`Unsupported operator: ${node.operator}`);
+					console.warn(`Unsupported operator: ${node.operator}`);
+					return "true";
+			}
+		case "UnaryExpression":
+			const argument = generateCode(node.argument);
+			switch (node.operator) {
+				case "!":
+					return `!(${argument})`;
+				default:
+					console.warn(
+						`Unsupported unary operator: ${node.operator}`,
+					);
+					return argument;
 			}
 		default:
-			throw new Error(`Unsupported node type: ${node.type}`);
+			console.warn(`Unsupported node type: ${node.type}`);
+			return "true";
 	}
 }
 
 function splitFilterAndOptions(input: string) {
 	const lines = input.split("\n");
-	const sectionHeaderPattern = /^[A-Z_]+/;
+	const sectionHeaderPattern = /^[A-Z_]+(?:\s|$)/;
 
 	let filterLines: string[] = [];
 	let optionsLines: string[] = [];
@@ -199,7 +258,20 @@ function splitFilterAndOptions(input: string) {
 	let inOptions = false;
 
 	for (const line of lines) {
-		if (!inOptions && sectionHeaderPattern.test(line.trim())) {
+		const trimmedLine = line.trim();
+
+		// Skip empty lines
+		if (!trimmedLine) {
+			if (inOptions) {
+				optionsLines.push(line);
+			} else {
+				filterLines.push(line);
+			}
+			continue;
+		}
+
+		// Check if this line starts a new section (all caps words)
+		if (!inOptions && sectionHeaderPattern.test(trimmedLine)) {
 			inOptions = true;
 		}
 
