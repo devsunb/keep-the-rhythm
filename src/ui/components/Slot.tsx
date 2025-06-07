@@ -28,9 +28,7 @@ export const Slot = ({
 	const [unitType, setUnitType] = useState<Unit>(unit);
 	const [optionType, setOptionType] = useState<TargetCount>(option);
 	const [calcMode, setCalcType] = useState<CalculationType>(calc);
-	// const [showCalcType, setShowCalcType] = useState<boolean>(true);
 	const [progressValue, setProgressValue] = useState<number>(0);
-	const [dataBeforeToday, setDataBeforeToday] = useState<number>(0);
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 
 	const deleteButtonRef = useRef<HTMLButtonElement>(null);

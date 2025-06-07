@@ -10,7 +10,7 @@ import { sumTimeEntries } from "../../utils/utils";
 import { state, EVENTS } from "../../core/pluginState";
 import { DailyActivity } from "../../db/types";
 import { Unit } from "../../defs/types";
-import { Notice, setIcon } from "obsidian";
+import { FileView, Notice, setIcon } from "obsidian";
 
 interface EntriesProps {
 	date?: string;
@@ -94,20 +94,41 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 							>
 								<span
 									className="todayEntries__file-path"
-									onClick={() => {
+									onClick={async () => {
 										const file =
 											state.plugin.app.vault.getFileByPath(
 												entry.filePath,
 											);
-										if (file) {
-											const leaf =
-												state.plugin.app.workspace.getLeaf(
-													"tab",
-												);
-											leaf.openFile(file);
-										} else {
+
+										if (!file) {
 											new Notice("File not found!");
+											return;
 										}
+
+										const leaves =
+											state.plugin.app.workspace.getLeavesOfType(
+												"markdown",
+											);
+										for (const leaf of leaves) {
+											if (
+												leaf.view instanceof FileView &&
+												leaf.view.file?.path ==
+													file.path
+											) {
+												// Activate the existing leaf
+												state.plugin.app.workspace.setActiveLeaf(
+													leaf,
+												);
+												return;
+											}
+										}
+
+										const newLeaf =
+											state.plugin.app.workspace.getLeaf(
+												"tab",
+											);
+
+										await newLeaf.openFile(file);
 									}}
 								>
 									{getFileNameWithoutExtension(
