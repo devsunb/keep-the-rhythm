@@ -182,6 +182,7 @@ export default class KeepTheRhythm extends Plugin {
 		}
 		if (loadedData.stats) {
 			this.data.stats = loadedData.stats;
+			await this.checkPreviousStreak();
 
 			const dailyActivitiesFromJSON =
 				this.data.stats?.dailyActivity || [];

@@ -186,7 +186,6 @@ export function generateCode(node: any): string {
 		return "true";
 	}
 
-	console.log(node);
 	switch (node.type) {
 		case "Literal":
 			let value = node.value;

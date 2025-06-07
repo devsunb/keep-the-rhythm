@@ -155,7 +155,6 @@ export class SettingsTab extends PluginSettingTab {
 			} else if (enabledLanguages.length === 4) {
 				loadedLanguage = "cjk";
 			} else if (enabledLanguages.length > 4) {
-				console.log("full mode");
 				loadedLanguage = "full";
 			} else {
 				loadedLanguage = "basic";
@@ -193,7 +192,6 @@ export class SettingsTab extends PluginSettingTab {
 								];
 								break;
 							case "full":
-								console.log("selecting full");
 								newScripts = [
 									"LATIN",
 									"CJK",
@@ -209,7 +207,6 @@ export class SettingsTab extends PluginSettingTab {
 								break;
 							case "custom":
 								/**Add checkboxes for individual scripts*/
-								console.log("other case of langugaa");
 								break;
 						}
 						state.plugin.data.settings.enabledLanguages = [
