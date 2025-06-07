@@ -1,103 +1,177 @@
 # Keep the Rhythm
 
-Keep the Rhythm is an Obsidian plugin that helps you maintain a consistent writing practice by tracking your daily word count and visualizing it through an elegant heatmap.
+Keep the Rhythm is an Obsidian plugin that helps you maintain a consistent writing habit by tracking your daily word count, setting writing goals and visualizing data through a heatmap and customizable code blocks.
 
 ![plugin-heatmap](docs/image.png)
 
-### Why not use Better Word Count?
-
-I built this plugin after finding that [Better Word Count](https://github.com/lukeleppan/better-word-count/), while useful, had issues with Obsidian Sync - stats would get overwritten when switching between devices.
-Keep the Rhythm solves this by properly saving and merging data through devices, ensuring your writing progress is always accurately tracked.
-
 ## Features
 
-- Daily Word Count Tracking: Automatically tracks how many words you write each day in Obsidian
-- Visual Heatmap: Data visualization showing your writing activity over time
-- Progress at a Glance: Quickly see your most productive writing days and identify patterns in your writing habits
-- Today's Entries View: Inspect and manage files tracked in the current day, with the ability to delete individual entries
-- Embedded Heatmaps: Insert heatmaps into any note using custom code blocks with powerful filtering options
-- Customizable Display: Toggle visibility of heatmap and today's entries through settings
-- Path Filtering: Filter your writing statistics to focus on specific folders or file patterns
-- Multi-device Sync: Seamlessly syncs and merges statistics across different devices
+- **Writing Stats**: Automatically tracks how many words/characters you write each day in Obsidian
 
-## Installation
+- **Goals & Streaks**: Set daily writing goals and track your streak of consecutive days meeting your target
 
-RECOMMENDED
+- **Heatmap**: View your writing activity over time (helps with consistency and motivation)
+- **Custom Slots**: Various writing statistics (written today, this week, avg. this year, etc.)
+- **Entries by Day**: Easily check and navigate to files you have worked on today
 
-- You can install the plugin through the Community Plugins section, inside Obsidian's settings
+- **Embedded Components**: Insert heatmaps, slots, and entries widgets into any note using custom code blocks
+- **Advanced Filtering**: Filter your writing statistics with the query syntax for specific folders or file patterns
 
-MANUAL INSTALLATION
+- **Multi-device Sync**: Syncs and merges statistics across different devices
 
-- Download the latest release files from this repository's Releases section
-- Create a folder on `/.obsidian/plugins/` named `keep-the-rhythm`
-- Reload Obsidian
-- Go to Settings > Community Plugins and enable "Keep the Rhythm"
+# Installation
 
-## Usage
+#### RECOMMENDED!
 
-#### **Basic Usage**
+Install through the Community Plugins section in Obsidian's settings
 
-Once installed and enabled, Keep the Rhythm will automatically begin tracking your writing activity. To view your heatmap:
+#### MANUAL INSTALLATION
 
-- Click the Keep the Rhythm icon in the left sidebar
-- The heatmap will display in the right panel, showing your writing activity
-- Hover over any day to see the exact word count
+Download the latest release files from this repository's Releases section
+Create a folder at /.obsidian/plugins/ named keep-the-rhythm
+Reload Obsidian
+Go to Settings > Community Plugins and enable "Keep the Rhythm"
 
-#### **Embedded Heatmaps**
+# Usage
 
-You can embed heatmaps directly in your notes using code blocks:
+### Basic Usage
 
-````
-	```keep-the-rhythm
-	```
-````
+Once installed and enabled, Keep the Rhythm will automatically begin tracking your writing activity. To view your statistics:
 
-To filter data for specific paths:
+1. Click the Keep the Rhythm icon in the left sidebar or use the command `Open sidebar view`
+2. The plugin panel displays your heatmap, current statistics, and today's entries
+3. Set up your preferred units and data points by hovering and clicking on each slot
+4. Hover over any cell to see the exact word count of that day
 
-````
-	```keep-the-rhythm
-		PATH includes "daily"
-	```
-````
+### Writing Goals
 
-#### **Display Options**
+Set and track your daily writing goals:
 
-You can customize the plugin's display through settings:
+1. Define your target word count per day in the plugin's settings
+2. Keep the Rhythm will track your streak of consecutive days meeting your goal
+3. View your current streak in the sidebar or through embedded slots
 
-- Toggle heatmap visibility
-- Toggle today's entries visibility
-- Adjust color schemes and intensity levels
+> You can force the plugin to check previous dates when you change your writing goal by using the command `Check streak`
 
-Toggling sections can also be made through the code blocks:
+### Heatmap Customization
 
-````
-	```keep-the-rhythm
-		HIDE overview
-		HIDE heatmap
-		HIDE entries
-	```
-````
+Customize your heatmap appearance with various options:
 
-#### **Managing data tracking for the current day**
+- Coloring Modes:
+    - `gradual`: Smooth gradient between colors
+    - `solid`: Single color intensity
+    - `stops`: Discrete color levels with thresholds
+    - `liquid`: Color fills cells from bottom up
+- Cell Shape: Choose between **rounded** (default) or **squared** cells
+- Interactive Navigation: Click cells to jump to daily notes (uses Obsidian's core plugin _Daily Notes_)
 
-Through the "TODAY ENTRIES" section, you can:
+### Data Slots
 
-- View all files tracked today
-- Delete individual entries if needed
-- Monitor real-time progress for each file
+Display various writing statistics using customizable slots:
 
-## Data and Privacy
+- Current: CURRENT_FILE, CURRENT_DAY, CURRENT_WEEK, CURRENT_MONTH, CURRENT_YEAR
+    - These are dynamic ranges calculated based on the start of the day/week/year
+- Historical Stats: LAST_DAY, LAST_WEEK, LAST_MONTH, LAST_YEAR
+    - These are calculated based on discrete ranges (24h, 7d, 30d, 365d)
+- Goal Tracking: CURRENT_STREAK
+- Vault Overview: WHOLE_VAULT
 
-Keep the Rhythm stores all data locally in your Obsidian vault. No data is sent to external servers. Your writing statistics are saved in a JSON file within the plugin's data directory.
-The plugin supports Obsidian's sync functionality by maintaining separate statistics for each device and intelligently merging them to prevent data loss.
+## Code Blocks
 
-## License
+Keep the Rhythm provides three types of embeddable code blocks.
 
-[MIT License](LICENSE)
+> A block can be created by using the code block syntax (3 backticks on start and end) and a keyword to specify the block type.
 
-## Support
+### Heatmap (`ktr-heatmap`)
+
+Embed customizable heatmaps with filtering and display options:
+
+```ktr-heatmap
+filePath starts_with "journal"
+
+OPTIONS
+HIDE month_labels, weekday_labels
+COLORING_MODE liquid
+STOPS 100, 500, 1000
+ROUNDED_CELLS
+```
+
+Query Syntax:
+
+- Filter by file path: `filePath starts_with "folder_name"`
+- Compose queries: `(filePath starts_with "journal") OR (filePath starts_with "worldbuilding")`
+
+Available Options:
+
+- `HIDE month_labels, weekday_labels`: Hide specific labels
+- `COLORING_MODE`: Set to `liquid`, `stops`, `solid`, or `gradual`
+- `STOPS`: Define threshold values (e.g., `100, 500, 1000`)
+- `SQUARED_CELLS` or `ROUNDED_CELLS`: Control cell appearance
+
+### Data Slots (`ktr-slots`)
+
+Display inline statistics with customizable metrics:
+
+```ktr-slots
+CURRENT_WEEK, WORDS
+CURRENT_DAY, CHARS
+CURRENT_STREAK
+WHOLE_VAULT
+CURRENT_MONTH, WORDS, AVG
+CURRENT_YEAR
+```
+
+Available Slots:
+
+- CURRENT_FILE: displays the current file count
+- CURRENT_STREAK: displays the amount of sequential days where writing goal was completed
+- CURRENT_DAY: displays the amount written from the start of the day until now
+- CURRENT_WEEK: displays the amount from the start of the week (currently defined as Monday, I'll add a setting soon)
+- CURRENT_MONTH: displays the amount from the start of the month
+- CURRENT_YEAR: displays the amount from the start of the year
+- LAST_DAY: amount written in the last 24 hours
+- LAST_WEEK: amount written in the last 7 days
+- LAST_MONTH: amount written in the last 30 days
+- LAST_YEAR: amount written in the last 365 days
+- WHOLE_VAULT: amount written in every markdown file in the vault
+
+**Options**:
+
+- Specify WORDS or CHARS for the count unit
+- Add AVG for average calculations where applicable
+
+### Daily Entries (`ktr-entries`)
+
+Display writing activity for specific dates:
+
+```ktr-entries
+2024-03-15
+```
+
+Shows the activity for the specified date (`YYYY-MM-DD` format). If no date is provided, displays the current date's activity.
+
+# Settings and Customization
+
+Access comprehensive customization options through the plugin settings:
+
+- Set daily writing goals and track streaks
+- Configure heatmap appearance (coloring, cell shapes, labels)
+- Toggle visibility of different plugin components
+
+# Data and Privacy
+
+Keep the Rhythm **stores all data locally** in your Obsidian vault. No data is sent to external servers. Your writing statistics are saved in a JSON file within the plugin's data directory.
+
+# Support
 
 If you encounter any issues or have suggestions for improvements, please:
 
-1. Check the [GitHub Issues](https://github.com/yourusername/keep-the-rhythm/issues) to see if your issue has already been reported
+1. Check the GitHub Issues to see if your issue has already been reported
 2. Create a new issue if needed, providing as much detail as possible
+
+# FAQ
+
+### Why not use Better Word Count?
+
+I built this plugin after finding that Better Word Count, while useful, had issues with Obsidian Sync - stats would get overwritten when switching between devices.
+Keep the Rhythm solves this by properly saving and merging data across devices, ensuring your writing progress is always accurately tracked!
