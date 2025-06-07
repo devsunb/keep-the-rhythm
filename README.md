@@ -19,7 +19,7 @@ Keep the Rhythm is an Obsidian plugin that helps you maintain a consistent writi
 
 - **Multi-device Sync**: Syncs and merges statistics across different devices
 
-# Installation
+## Installation
 
 #### RECOMMENDED!
 
@@ -32,7 +32,9 @@ Create a folder at /.obsidian/plugins/ named keep-the-rhythm
 Reload Obsidian
 Go to Settings > Community Plugins and enable "Keep the Rhythm"
 
-# Usage
+---
+
+## Usage
 
 ### Basic Usage
 
@@ -76,13 +78,13 @@ Display various writing statistics using customizable slots:
 - Goal Tracking: CURRENT_STREAK
 - Vault Overview: WHOLE_VAULT
 
-## Code Blocks
+### Code Blocks
 
 Keep the Rhythm provides three types of embeddable code blocks.
 
 > A block can be created by using the code block syntax (3 backticks on start and end) and a keyword to specify the block type.
 
-### Heatmap (`ktr-heatmap`)
+#### Heatmap (`ktr-heatmap`)
 
 Embed customizable heatmaps with filtering and display options:
 
@@ -108,7 +110,7 @@ Available Options:
 - `STOPS`: Define threshold values (e.g., `100, 500, 1000`)
 - `SQUARED_CELLS` or `ROUNDED_CELLS`: Control cell appearance
 
-### Data Slots (`ktr-slots`)
+#### Data Slots (`ktr-slots`)
 
 Display inline statistics with customizable metrics:
 
@@ -140,7 +142,7 @@ Available Slots:
 - Specify WORDS or CHARS for the count unit
 - Add AVG for average calculations where applicable
 
-### Daily Entries (`ktr-entries`)
+#### Daily Entries (`ktr-entries`)
 
 Display writing activity for specific dates:
 
@@ -150,7 +152,7 @@ Display writing activity for specific dates:
 
 Shows the activity for the specified date (`YYYY-MM-DD` format). If no date is provided, displays the current date's activity.
 
-# Settings and Customization
+## Settings and Customization
 
 Access comprehensive customization options through the plugin settings:
 
@@ -158,20 +160,20 @@ Access comprehensive customization options through the plugin settings:
 - Configure heatmap appearance (coloring, cell shapes, labels)
 - Toggle visibility of different plugin components
 
-# Data and Privacy
+## Data and Privacy
 
 Keep the Rhythm **stores all data locally** in your Obsidian vault. No data is sent to external servers. Your writing statistics are saved in a JSON file within the plugin's data directory.
 
-# Support
+## Support
 
 If you encounter any issues or have suggestions for improvements, please:
 
 1. Check the GitHub Issues to see if your issue has already been reported
 2. Create a new issue if needed, providing as much detail as possible
 
-# FAQ
+## FAQ
 
-### Why not use Better Word Count?
+#### Why not use Better Word Count?
 
 I built this plugin after finding that Better Word Count, while useful, had issues with Obsidian Sync - stats would get overwritten when switching between devices.
 Keep the Rhythm solves this by properly saving and merging data across devices, ensuring your writing progress is always accurately tracked!
