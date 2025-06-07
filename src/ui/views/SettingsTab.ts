@@ -389,6 +389,21 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName("Others").setHeading();
 
+		new Setting(containerEl)
+			.setName("Heatmap navigation")
+			.setDesc(
+				"Clicks open the daily note from that day, using Obsidian's Daily Note core plugin",
+			)
+			.setClass("ktr-first")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.data.settings.heatmapNavigation)
+					.onChange(async (value) => {
+						this.plugin.data.settings.heatmapNavigation = value;
+						this.plugin.updateAndSaveEverything();
+					}),
+			);
+
 		// containerEl.createEl("button").setText("Saw or bug or have feedback?");
 
 		containerEl.createEl("div").innerHTML = `

@@ -69,6 +69,7 @@ export interface Settings {
 	globalFilter?: string; // not used yet
 	startOfTheWeek: "MONDAY" | "SUNDAY"; // not used yet, should be used to offset start of the week calculations and heatmap
 	heatmapConfig: HeatmapConfig;
+	heatmapNavigation: boolean;
 	sidebarConfig: {
 		visibility: {
 			showSlots: boolean;
@@ -128,6 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	enabledLanguages: ["LATIN"],
 	dailyWritingGoal: 500,
 	startOfTheWeek: "SUNDAY",
+	heatmapNavigation: true,
 	heatmapConfig: {
 		roundCells: true,
 		hideMonthLabels: false,

@@ -60,8 +60,8 @@ export const KTRView = ({ plugin }: KTRView) => {
 	return (
 		<div
 			className={`
-				sideBarView 
-				`}
+			sideBarView 
+			`}
 		>
 			<KeyProvider>
 				{showSlots && <SlotWrapper slots={slots} />}
