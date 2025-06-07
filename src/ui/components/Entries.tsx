@@ -21,15 +21,13 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 
 	const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
-	useEffect(() => {
-		if (
-			deleteButtonRef instanceof HTMLElement &&
-			!deleteButtonRef.dataset.iconSet
-		) {
-			setIcon(deleteButtonRef, "trash-2");
-			deleteButtonRef.dataset.iconSet = "true";
-		}
-	}, [entries]);
+	if (
+		deleteButtonRef instanceof HTMLElement &&
+		!deleteButtonRef.dataset.iconSet
+	) {
+		setIcon(deleteButtonRef, "trash-2");
+		deleteButtonRef.dataset.iconSet = "true";
+	}
 
 	const handleEntriesRefresh = async () => {
 		const fetchedActivities = await getActivityByDate(date);
@@ -66,17 +64,6 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 			state.off(EVENTS.REFRESH_EVERYTHING, handleEntriesRefresh);
 		};
 	}, []);
-
-	// return (
-	// 	<div>
-	// 		{entries.map((entry) => (
-	// 			<div key={entry.filePath} className="">
-	// 				<div>TESTANDO 1</div>
-	// 				{entry.filePath} / {sumTimeEntries(entry, Unit.WORD)}
-	// 			</div>
-	// 		))}
-	// 	</div>
-	// );
 
 	return (
 		<div className="todayEntries__section">

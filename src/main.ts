@@ -16,7 +16,6 @@ import {
 	STARTING_STATS,
 	PluginData,
 } from "@/defs/types";
-import { removeDuplicatedDailyEntries } from "./db/queries";
 
 import { db } from "@/db/db";
 import { EVENTS, state } from "@/core/pluginState";
@@ -31,7 +30,6 @@ import { migrateDataFromOldFormat } from "./utils/migrateData";
 import { parseQueryToJSEP, parseSlotQuery } from "./core/codeBlockQuery";
 import * as utils from "@/utils/utils";
 import * as events from "@/core/events";
-import { emit } from "process";
 
 export default class KeepTheRhythm extends Plugin {
 	data: PluginData = {
@@ -49,40 +47,106 @@ export default class KeepTheRhythm extends Plugin {
 	private JsonDebounceTimeout: any = null;
 
 	// #region Initialization
-	private async backupDataToVault(data: any) {
-		console.log("Saving backup");
+	async onload() {
+		// #region JSON
 
+		db.dailyActivity.clear(); // restarts DB to ensure data.json is the source of truth
+		const loadedData = await this.loadData();
+
+		if (loadedData) {
+			await this.backupDataToVaultFolder(loadedData);
+		}
+
+		/** Data is only loaded into dexie if it's the correct schema */
+		if (loadedData && loadedData.schema === "0.2") {
+			await this.initializeDataFromJSON(loadedData);
+		} else if (loadedData && loadedData.schema !== "0.2") {
+			new Notice("KTR: Migrating data from previous versions...");
+			await this.migrateDataFromJSON(loadedData);
+		} else if (!loadedData) {
+			this.data.schema = "0.2";
+			this.data.stats = {
+				...STARTING_STATS,
+			};
+		} else {
+			this.data.stats = loadedData.stats;
+			this.data.settings = loadedData.settings;
+		}
+
+		await this.saveData(this.data);
+
+		// #endregion
+
+		state.setPlugin(this);
+		state.setToday();
+
+		// /** Set of utility functions that registers required objects and sets plugin state */
+
+		/** Initialize SIDEBAR view */
+		this.registerView(VIEW_TYPE, (leaf) => {
+			return new PluginView(leaf, this);
+		});
+
+		this.initializeCommands();
+		this.initializeEvents();
+		this.applyColorStyles();
+		this.addSettingTab(new SettingsTab(this.app, this));
+
+		/** Registers CUSTOM CODE BLOCKS */
+		this.registerMarkdownCodeBlockProcessor(
+			"ktr-heatmap",
+			this.createHeatmapCodeBlock(),
+		);
+
+		this.registerMarkdownCodeBlockProcessor(
+			"ktr-slots",
+			this.createSlotsCodeBlock(),
+		);
+
+		this.registerMarkdownCodeBlockProcessor(
+			"ktr-entries",
+			this.createEntriesCodeBlock(),
+		);
+
+		state.on(EVENTS.REFRESH_EVERYTHING, async () => {
+			if (this.JsonDebounceTimeout) {
+				clearTimeout(this.JsonDebounceTimeout);
+			}
+
+			this.JsonDebounceTimeout = setTimeout(async () => {
+				await this.saveDataToJSON();
+			}, this.JSON_DEBOUNCE_TIME);
+		});
+	}
+
+	private async backupDataToVaultFolder(data: any) {
 		const folderPath = ".keep-the-rhyhtm";
 		const fileName = `backup-${formatDate(new Date())}.json`;
 		const backupPath = `${folderPath}/${fileName}`;
 		const jsonData = JSON.stringify(data, null, 2);
 
 		const folderExists = await this.app.vault.adapter.exists(folderPath);
+
 		if (!folderExists) {
-			console.log("No backup folder, creating one...");
 			await this.app.vault.adapter.mkdir(folderPath);
 		}
 
-		// List files in the hidden folder
 		const backups = await this.app.vault.adapter.list(folderPath);
-		// adapter.list returns { files: string[], folders: string[] }
 		const backupFiles = backups.files.filter((f) => f.endsWith(".json"));
 
 		if (data.schema !== "0.2") {
-			console.log("Current schema found, checking backups...");
 			// Compare against all existing backups
 			for (const filePath of backupFiles) {
 				const contents = await this.app.vault.adapter.read(filePath);
 				if (contents === jsonData) {
 					new Notice("KTR: No changes to backup.");
-					return; // Exit early if same content exists
+					return;
 				}
 			}
 			// No identical backup found, save new one
 			await this.app.vault.adapter.write(backupPath, jsonData);
 			new Notice("KTR: New backup saved.");
 		} else {
-			console.log("Old schema: saving data from previous versions!");
 			if (backupFiles.length === 0) {
 				await this.app.vault.adapter.write(backupPath, jsonData);
 				new Notice("KTR: First backup created.");
@@ -132,87 +196,6 @@ export default class KeepTheRhythm extends Plugin {
 				);
 			}
 		}
-	}
-
-	async onload() {
-		// #region JSON
-
-		// Sei lá meu :\
-		db.dailyActivity.clear();
-
-		/** Information from source of truth (data.json) */
-		const loadedData = await this.loadData();
-
-		if (loadedData) {
-			await this.backupDataToVault(loadedData);
-		}
-
-		/** Data is only loaded into dexie if it's the correct schema */
-		if (loadedData && loadedData.schema === "0.2") {
-			await this.initializeDataFromJSON(loadedData);
-		} else if (loadedData && loadedData.schema !== "0.2") {
-			new Notice("KTR: Migrating data from previous versions...");
-			await this.migrateDataFromJSON(loadedData);
-		} else if (!loadedData) {
-			this.data.schema = "0.2";
-			this.data.stats = {
-				...STARTING_STATS,
-			};
-		} else {
-			this.data.stats = loadedData.stats;
-			this.data.settings = loadedData.settings;
-		}
-
-		await this.saveData(this.data);
-
-		// #endregion
-
-		// #region STATE SETUP
-
-		/** Setup state / cache / etc. */
-		state.setPlugin(this);
-		state.setToday();
-
-		// START CACHE SOMEWHERE HERE
-		// START SAVING DATA LOOP / JSON / DEBOUNCE HERE
-		// this.saveDataToJSON();
-
-		// /** Set of utility functions that registers required objects and sets plugin state */
-
-		/** Initialize SIDEBAR view */
-		this.registerView(VIEW_TYPE, (leaf) => {
-			return new PluginView(leaf, this);
-		});
-
-		this.initializeCommands(); // Initialize COMMAND PALETTE options
-		this.initializeEvents(); // Registers all EVENTS to obsidian API
-		this.applyColorStyles(); // Applies color styles (CSS Custom Properties) to app container
-		this.addSettingTab(new SettingsTab(this.app, this)); // Registers the settings tab for plugin configuration
-
-		/** Registers CUSTOM CODE BLOCKS */
-		this.registerMarkdownCodeBlockProcessor(
-			"ktr-heatmap",
-			this.createHeatmapCodeBlock(),
-		);
-
-		this.registerMarkdownCodeBlockProcessor(
-			"ktr-slots",
-			this.createSlotsCodeBlock(),
-		);
-
-		this.registerMarkdownCodeBlockProcessor(
-			"ktr-entries",
-			this.createEntriesCodeBlock(),
-		);
-
-		state.on(EVENTS.REFRESH_EVERYTHING, async () => {
-			if (this.JsonDebounceTimeout)
-				clearTimeout(this.JsonDebounceTimeout);
-
-			this.JsonDebounceTimeout = setTimeout(async () => {
-				await this.saveDataToJSON();
-			}, this.JSON_DEBOUNCE_TIME);
-		});
 	}
 
 	private applyColorStyles() {
@@ -370,12 +353,41 @@ export default class KeepTheRhythm extends Plugin {
 
 		this.addCommand({
 			id: "open-keep-the-rhythm",
-			name: "Open tracking heatmap",
+			name: "Open sidebar view",
 			callback: () => {
 				this.activateView();
 			},
 		});
+
+		this.addCommand({
+			id: "check-ktr-streak",
+			name: "Check writing goal from previous days",
+			callback: () => {
+				this.checkPreviousStreak();
+			},
+		});
 	}
+
+	private async checkPreviousStreak() {
+		if (!this.data.settings) return;
+
+		const activities = await db.dailyActivity.toArray();
+
+		for (let i = 0; i < activities.length; i++) {
+			const { totalWords } = utils.sumBothTimeEntries(activities[i]);
+			if (
+				totalWords > this.data.settings.dailyWritingGoal &&
+				!this.data.stats?.daysWithCompletedGoal?.includes(
+					activities[i].date,
+				)
+			) {
+				this.data.stats?.daysWithCompletedGoal?.push(
+					activities[i].date,
+				);
+			}
+		}
+	}
+
 	private initializeEvents() {
 		this.registerEvent(
 			this.app.workspace.on("editor-change", (editor, info) => {
@@ -419,7 +431,7 @@ export default class KeepTheRhythm extends Plugin {
 			clearTimeout(this.JsonDebounceTimeout);
 		}
 		this.saveDataToJSON();
-		this.backupDataToVault(this.data);
+		this.backupDataToVaultFolder(this.data);
 
 		await db.dailyActivity.clear();
 	}
@@ -474,6 +486,7 @@ export default class KeepTheRhythm extends Plugin {
 		const dailyActivityDB = await db.dailyActivity.toArray();
 
 		this.data.stats = {
+			...this.data.stats,
 			dailyActivity: dailyActivityDB,
 		};
 
@@ -483,7 +496,7 @@ export default class KeepTheRhythm extends Plugin {
 	public async updateCurrentStreak(increase: boolean) {
 		if (!this.data.stats) return;
 
-		// TODO: check previous date to  see when was the last one
+		// TODO: check previous date to see when was the last one
 
 		if (!this.data.stats.daysWithCompletedGoal) {
 			this.data.stats.daysWithCompletedGoal = [];
@@ -506,6 +519,7 @@ export default class KeepTheRhythm extends Plugin {
 				this.data.stats.daysWithCompletedGoal = newArray;
 			}
 		}
+		this.quietSave();
 	}
 
 	public async updateAndSaveEverything() {
@@ -515,28 +529,6 @@ export default class KeepTheRhythm extends Plugin {
 
 	public async quietSave() {
 		await this.saveData(this.data);
-	}
-
-	private async saveTodayDataToJSON() {
-		const start = performance.now();
-		const dailyActivity = await db.dailyActivity
-			.where("date")
-			.equals(state.today)
-			.toArray();
-
-		// Merge with existing data rather than overwriting
-		this.data.stats = {
-			...this.data.stats,
-			dailyActivity: [
-				...(this.data.stats?.dailyActivity?.filter(
-					(a) => a.date !== state.today,
-				) || []),
-				...dailyActivity,
-			],
-		};
-
-		const end = performance.now();
-		//     await this.saveData(this.data);
 	}
 
 	// #endregion

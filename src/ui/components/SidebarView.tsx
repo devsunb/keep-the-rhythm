@@ -1,4 +1,3 @@
-// import { usePluginState2 } from "@/core/pluginState";
 import { KeyProvider } from "@/utils/useModiferKey";
 import React, { useEffect, useState } from "react";
 import type { PluginData } from "@/defs/types";

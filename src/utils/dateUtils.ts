@@ -45,3 +45,9 @@ export function floorMomentToFive(m: any) {
 export const formatDate = (date: Date): string => {
 	return moment(date).format("YYYY-MM-DD");
 };
+
+export function getDateBasedOnIndex(index: number) {
+	const today = moment();
+	const monday = today.clone().startOf("isoWeek"); // isoWeek starts on Monday
+	return monday.clone().add(index, "days").format("YYYY-MM-DD");
+}

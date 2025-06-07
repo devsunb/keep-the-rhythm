@@ -1,7 +1,5 @@
-import { db } from "@/db/db";
 import { DEFAULT_SETTINGS, PluginData } from "../defs/types";
 import { TimeEntry, DailyActivity } from "../db/types";
-import { state } from "@/core/pluginState";
 
 export type OldFormat = {
 	settings: {

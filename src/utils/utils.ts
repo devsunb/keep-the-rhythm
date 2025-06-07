@@ -257,11 +257,6 @@ export function getDateStreaks(dateStrings: string[]) {
 	return { longestStreak, currentStreak };
 }
 
-export function getDateBasedOnIndex(index: number) {
-	const today = moment();
-	const monday = today.clone().startOf("isoWeek"); // isoWeek starts on Monday
-	return monday.clone().add(index, "days").format("YYYY-MM-DD");
-}
 export function debounce<T extends (...args: any[]) => void>(
 	func: T,
 	delay: number,

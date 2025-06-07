@@ -35,16 +35,9 @@ export const SlotWrapper = ({ slots, isCodeBlock }: SlotWrapperProps) => {
 	};
 
 	useEffect(() => {
-		// state.off(EVENTS.REFRESH_EVERYTHING, updateSlots);
-		// state.on(EVENTS.REFRESH_EVERYTHING, updateSlots);
-
 		if (!isCodeBlock) {
 			updateSlots();
 		}
-
-		return () => {
-			// state.off(EVENTS.REFRESH_EVERYTHING, updateSlots);
-		};
 	}, []);
 
 	const handleDeleteClick = (index: number) => {

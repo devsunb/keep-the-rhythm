@@ -1,4 +1,4 @@
-import { getDateStreaks, getDateBasedOnIndex } from "@/utils/utils";
+import { getDateBasedOnIndex } from "@/utils/dateUtils";
 import React from "react";
 import { setIcon } from "obsidian";
 import { useState, useEffect, useRef } from "react";
@@ -28,7 +28,7 @@ export const Slot = ({
 	const [unitType, setUnitType] = useState<Unit>(unit);
 	const [optionType, setOptionType] = useState<TargetCount>(option);
 	const [calcMode, setCalcType] = useState<CalculationType>(calc);
-	const [showCalcType, setShowCalcType] = useState<boolean>(true);
+	// const [showCalcType, setShowCalcType] = useState<boolean>(true);
 	const [progressValue, setProgressValue] = useState<number>(0);
 	const [dataBeforeToday, setDataBeforeToday] = useState<number>(0);
 	const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -68,15 +68,15 @@ export const Slot = ({
 		const icon = calcMode == "TOTAL" ? "chart-spline" : "sigma";
 		setIcon(calcButtonRef.current, icon);
 	}
-	useEffect(() => {
-		setShowCalcType(
-			optionType !== TargetCount.CURRENT_FILE &&
-				optionType !== TargetCount.CURRENT_DAY &&
-				optionType !== TargetCount.LAST_DAY &&
-				optionType !== TargetCount.WHOLE_VAULT &&
-				optionType !== TargetCount.CURRENT_STREAK,
-		);
-	}, [calcMode, optionType]);
+
+	const showCalcType =
+		optionType !== TargetCount.CURRENT_FILE &&
+		optionType !== TargetCount.CURRENT_DAY &&
+		optionType !== TargetCount.LAST_DAY &&
+		optionType !== TargetCount.WHOLE_VAULT &&
+		optionType !== TargetCount.CURRENT_STREAK;
+	// useEffect(() => {
+	// }, [calcMode, optionType]);
 
 	const toggleCalculation = () => {
 		const newCalc =
@@ -148,11 +148,10 @@ export const Slot = ({
 		const date = getDateBasedOnIndex(dayIndex);
 		const data = state.plugin.data.stats?.daysWithCompletedGoal;
 
-		if (data && data?.includes(date)) {
+		if (data && data.includes(date)) {
 			return true;
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	return (
