@@ -165,7 +165,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Enabled Languages")
-			.setDesc("Select which writing systems to count")
+			.setDesc("Select which writing systems to count.")
 			.setClass("ktr-first")
 			.addDropdown((dropdown) => {
 				const scriptOptions = {
@@ -220,14 +220,28 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Writing Goal")
-			.setDesc("Amount of words you intend to write on a day")
+			.setDesc("Amount of words you intend to write on a day.")
 
 			.addText((text) =>
 				text
 					.setPlaceholder("500")
-					.setValue(this.plugin.data.settings.dailyWritingGoal)
+					.setValue(this.plugin.data.settings.dailyWritingGoal || 500)
 					.onChange(async (value) => {
 						this.plugin.data.settings.dailyWritingGoal = value;
+						this.plugin.updateAndSaveEverything();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Heatmap navigation")
+			.setDesc(
+				"Clicks open the daily note from that day, using Obsidian's Daily Note core plugin.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.data.settings.heatmapNavigation)
+					.onChange(async (value) => {
+						this.plugin.data.settings.heatmapNavigation = value;
 						this.plugin.updateAndSaveEverything();
 					}),
 			);
@@ -237,7 +251,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Show overview")
-			.setDesc("Display the overview section in the word count heatmap")
+			.setDesc("Display the overview section in the word count heatmap.")
 			.setClass("ktr-first")
 			.addToggle((toggle) =>
 				toggle
@@ -253,7 +267,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Show today's entries")
+			.setName("Show today's entries.")
 			.setDesc(
 				"Display which files were edited today and their respective word counts.",
 			)
@@ -366,7 +380,7 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Coloring Mode")
 			.setClass("ktr-first")
-			.setDesc("Choose the heatmap coloring method.")
+			.setDesc("Choose the coloring method.")
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOptions({ ...HeatmapColorModes })
@@ -387,23 +401,9 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.createEl("hr");
 
-		new Setting(containerEl).setName("Others").setHeading();
+		// new Setting(containerEl).setName("Others").setHeading();
 
-		new Setting(containerEl)
-			.setName("Heatmap navigation")
-			.setDesc(
-				"Clicks open the daily note from that day, using Obsidian's Daily Note core plugin",
-			)
-			.setClass("ktr-first")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.data.settings.heatmapNavigation)
-					.onChange(async (value) => {
-						this.plugin.data.settings.heatmapNavigation = value;
-						this.plugin.updateAndSaveEverything();
-					}),
-			);
-
+		// containerEl.createEl("hr");
 		// containerEl.createEl("button").setText("Saw or bug or have feedback?");
 
 		containerEl.createEl("div").innerHTML = `
@@ -437,7 +437,9 @@ export class SettingsTab extends PluginSettingTab {
 
 		const setting = new Setting(containerEl)
 			.setName(`${theme.charAt(0).toUpperCase() + theme.slice(1)} colors`)
-			.setDesc("Before low, low, between low and medium, medium");
+			.setDesc(
+				"Colors used to paint each cell, ranges vary based on coloring mode.",
+			);
 
 		levelsToShow.forEach((level) => {
 			setting.addColorPicker((color) =>
@@ -476,7 +478,7 @@ export class SettingsTab extends PluginSettingTab {
 			this.plugin.data.settings.heatmapConfig;
 		const setting = new Setting(containerEl)
 			.setName("Intensity thresholds")
-			.setDesc("Low, medium, and high.");
+			.setDesc("Changes how the color of each cell is calculated.");
 
 		// Each mode determines which threshold levels to show
 		const thresholds: {
