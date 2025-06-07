@@ -2,7 +2,7 @@
 
 Keep the Rhythm is an Obsidian plugin that helps you maintain a consistent writing habit by tracking your daily word count, setting writing goals and visualizing data through a heatmap and customizable code blocks.
 
-![plugin-heatmap](docs/image.png)
+![image](https://github.com/user-attachments/assets/8acd047d-68da-42d0-835d-6c7ab55b6f65)
 
 ## Features
 
@@ -88,14 +88,15 @@ Keep the Rhythm provides three types of embeddable code blocks.
 
 Embed customizable heatmaps with filtering and display options:
 
-```ktr-heatmap
+```js
 filePath starts_with "journal"
 
-OPTIONS
-HIDE month_labels, weekday_labels
-COLORING_MODE liquid
-STOPS 100, 500, 1000
-ROUNDED_CELLS
+OPTIONS                                    // must always start with the OPTIONS header
+HIDE month_labels, weekday_labels          // allows to hide the labels
+COLORING_MODE liquid                       // toggles the coloring mode (liquid, stops, solid or gradual)
+STOPS 100, 500, 1000                       // changes the keypoints used for calculating the color of the cells
+SQUARED_CELLS                              // changes the cell styling for a more squared look
+ROUNDED_CELLS                              // changes the cell styling for a rounded look
 ```
 
 Query Syntax:
