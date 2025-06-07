@@ -145,7 +145,6 @@ export const Slot = ({
 	function isDayCompleted(dayIndex: number) {
 		const date = getDateBasedOnIndex(dayIndex);
 		const data = state.plugin.data.stats?.daysWithCompletedGoal;
-		data?.includes(date);
 
 		if (data && data.includes(date)) {
 			return true;
