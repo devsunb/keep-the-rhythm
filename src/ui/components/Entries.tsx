@@ -1,12 +1,11 @@
 import { deleteActivityFromDate } from "../../db/queries";
 import { Tooltip } from "./Tooltip";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { getFileNameWithoutExtension } from "../../utils/utils";
 import React from "react";
 import { useEffect, useState, useRef } from "react";
 import { formatDate } from "../../utils/dateUtils";
 import { getActivityByDate } from "../../db/queries";
-import { sumTimeEntries } from "../../utils/utils";
+import { sumTimeEntries, getFileNameWithoutExtension } from "../../utils/utils";
 import { state, EVENTS } from "../../core/pluginState";
 import { DailyActivity } from "../../db/types";
 import { Unit } from "../../defs/types";
