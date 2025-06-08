@@ -336,6 +336,11 @@ export async function debouncedVaultCountRead(
 	return promise;
 }
 
+export const deleteActivityById = async (entryId: number | undefined) => {
+	if (!entryId) return;
+	db.dailyActivity.delete(entryId);
+};
+
 export const deleteActivityFromDate = async (
 	filePath: string,
 	date: string,

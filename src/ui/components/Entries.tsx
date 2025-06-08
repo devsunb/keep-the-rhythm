@@ -1,4 +1,4 @@
-import { deleteActivityFromDate } from "../../db/queries";
+import { deleteActivityFromDate, deleteActivityById } from "../../db/queries";
 import { Tooltip } from "./Tooltip";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import React from "react";
@@ -41,11 +41,8 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 			}
 		}
 
-		const uniqueEntries = fetchedActivities.filter((entry) =>
-			entry.filePath ? pathCounts.get(entry.filePath) === 1 : true,
-		);
 		setEntries(
-			uniqueEntries.filter(
+			fetchedActivities.filter(
 				(entry) => sumTimeEntries(entry, Unit.WORD, true) != 0,
 			),
 		);
@@ -149,9 +146,8 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 												el && setIcon(el, "trash-2")
 											}
 											onMouseDown={async () => {
-												await deleteActivityFromDate(
-													entry.filePath,
-													date,
+												await deleteActivityById(
+													entry.id,
 												);
 												state.emit(
 													EVENTS.REFRESH_EVERYTHING,

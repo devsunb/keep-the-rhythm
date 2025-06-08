@@ -457,8 +457,7 @@ export default class KeepTheRhythm extends Plugin {
 				/** Find any new activity and add it to the db */
 				if (
 					existingActivity &&
-					JSON.stringify(existingActivity) ===
-						JSON.stringify(activity)
+					JSON.stringify(existingActivity) == JSON.stringify(activity)
 				) {
 					return;
 				} else {
