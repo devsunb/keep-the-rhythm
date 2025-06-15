@@ -26,8 +26,9 @@
 // }
 
 .heatmap-codeblock {
-	// min-height: 180px;
 	width: fit-content;
+	max-width: 100%;
+
 	& > * {
 		width: fit-content;
 	}

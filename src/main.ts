@@ -330,6 +330,7 @@ export default class KeepTheRhythm extends Plugin {
 					heatmapConfig: query?.options,
 					query: query?.filter,
 					isCodeBlock: true,
+					amountOfWeeks: query?.options.numberOfWeeks,
 				}),
 			);
 

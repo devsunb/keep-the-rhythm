@@ -111,6 +111,7 @@ export const STARTING_STATS = {
 };
 
 export interface HeatmapConfig {
+	numberOfWeeks?: number;
 	intensityMode: HeatmapColorModes;
 	roundCells: boolean;
 	hideMonthLabels: boolean;

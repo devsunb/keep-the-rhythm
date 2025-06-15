@@ -139,7 +139,8 @@ export function parseQueryToJSEP(query: string) {
 					case "ROUNDED_CELLS":
 						config.roundCells = true;
 						break;
-					// TODO: just add an option here to support custom amount of weeks on the heatmap
+					case "WEEKS":
+						config.numberOfWeeks = Number(details) || 20;
 				}
 			}
 		}
