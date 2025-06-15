@@ -67,6 +67,7 @@ Customize your heatmap appearance with various options:
 - Cell Shape: Choose between **rounded** (default) or **squared** cells
 - Interactive Navigation: Click cells to jump to daily notes (uses Obsidian's core plugin _Daily Notes_)
 
+
 ### Data Slots
 
 Display various writing statistics using customizable slots:
@@ -97,6 +98,7 @@ COLORING_MODE liquid                       // toggles the coloring mode (liquid,
 STOPS 100, 500, 1000                       // changes the keypoints used for calculating the color of the cells
 SQUARED_CELLS                              // changes the cell styling for a more squared look
 ROUNDED_CELLS                              // changes the cell styling for a rounded look
+WEEKS 24                                   // changes how many weeks are displayed (can affect performance)
 ```
 
 Query Syntax:
