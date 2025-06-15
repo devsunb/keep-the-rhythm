@@ -42,9 +42,13 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 		}
 
 		setEntries(
-			fetchedActivities.filter(
-				(entry) => sumTimeEntries(entry, Unit.WORD, true) != 0,
-			),
+			fetchedActivities
+				.filter((entry) => sumTimeEntries(entry, Unit.WORD, true) != 0)
+				.sort((a, b) => {
+					const aCount = sumTimeEntries(a, unit, true);
+					const bCount = sumTimeEntries(b, unit, true);
+					return bCount - aCount;
+				}),
 		);
 	};
 
