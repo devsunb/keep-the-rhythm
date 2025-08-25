@@ -123,6 +123,9 @@ export async function handleEditorChange(
  */
 
 export async function handleFileOpen(file: TFile) {
+		if (!file || file.extension !== "md") {
+		return;
+	}
 	state.isUpdatingActivity = true;
 	/** Simple check if the day has passed to update everything if it did.*/
 	const today = formatDate(new Date());
@@ -240,6 +243,10 @@ async function checkStreak() {
  * Should probably just get the fileWordCount and consider it as delta in it's dailyActivity?
  */
 export async function handleFileDelete(file: TFile) {
+		// Add this check at the beginning  
+	if (!file || file.extension !== "md") {
+		return;
+	}
 	//FUTURE: correct file delta is only calculated if the user opens the file first
 	// if he doesnt there is no daily activity to get the current file count and it will not consider that into the calculations
 	try {
