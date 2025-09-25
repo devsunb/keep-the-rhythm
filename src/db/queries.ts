@@ -199,8 +199,7 @@ export async function getWholeVaultCount(
 ) {
 	const needsRecalc =
 		state.plugin.data.stats?.baseVaultWordCount === undefined ||
-		state.plugin.data.stats?.baseVaultCharCount === undefined ||
-		await isBaseVaultCountStale();
+		state.plugin.data.stats?.baseVaultCharCount === undefined;
 	
 	if (needsRecalc) {
 		if (!state.plugin.data.stats) {
