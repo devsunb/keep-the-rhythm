@@ -114,7 +114,7 @@ export const Slot = ({
 	};
 
 	const updateData = async () => {
-		if (optionType == TargetCount.WHOLE_VAULT) setIsLoading(true);
+		if (optionType == TargetCount.WHOLE_VAULT && (plugin.data.stats?.baseVaultWordCount === undefined || plugin.data.stats?.baseVaultCharCount === undefined)) setIsLoading(true);
 		try {
 			const v = await getCurrentCount(unitType, optionType, calcMode);
 			if (optionType === TargetCount.CURRENT_DAY) {
