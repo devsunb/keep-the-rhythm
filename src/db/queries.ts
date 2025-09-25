@@ -225,6 +225,18 @@ export async function getCurrentCount(
 		if (state.currentActivity) {
 			return sumTimeEntries(state?.currentActivity, unit) || 0;
 		} else {
+			// No current session - just sum all past activity for this file
+			const activeFile = state.plugin.app.workspace.getActiveFile();
+			if (activeFile) {
+				const activities = await db.dailyActivity
+					.where("filePath")
+					.equals(activeFile.path)
+					.toArray();
+				console.log(activities);
+				return activities.reduce((sum, activity) => {
+					return sum + sumTimeEntries(activity, unit, false);
+				}, 0);
+			}
 			return 0;
 		}
 	}

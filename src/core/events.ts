@@ -164,6 +164,8 @@ export async function handleFileOpen(file: TFile) {
 
 	if (entry) state.setCurrentActivity(entry);
 	state.isUpdatingActivity = false;
+
+	state.emit(EVENTS.REFRESH_EVERYTHING);
 }
 
 /**
