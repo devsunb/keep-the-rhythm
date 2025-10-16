@@ -98,6 +98,8 @@ export interface PluginData {
 		highestStreakEndDate?: string;
 		daysWithCompletedGoal?: string[];
 		dailyActivity: DailyActivity[];
+		baseVaultWordCount?: number;
+		baseVaultCharCount?: number;
 	};
 }
 

@@ -1,4 +1,6 @@
 import { formatDate } from "./utils/dateUtils";
+import { moment as _moment } from "obsidian";
+const moment = _moment as unknown as typeof _moment.default;
 import {
 	Plugin,
 	TFile,
@@ -80,6 +82,8 @@ export default class KeepTheRhythm extends Plugin {
 		state.setPlugin(this);
 		state.setToday();
 
+		this.checkVaultCountStaleness();
+
 		// /** Set of utility functions that registers required objects and sets plugin state */
 
 		/** Initialize SIDEBAR view */
@@ -117,6 +121,24 @@ export default class KeepTheRhythm extends Plugin {
 				await this.saveDataToJSON();
 			}, this.JSON_DEBOUNCE_TIME);
 		});
+	}
+
+	private async checkVaultCountStaleness() {
+		if (this.data.stats?.baseVaultWordCount !== undefined && this.data.stats?.baseVaultCharCount !== undefined) {
+			const recentActivity = await db.dailyActivity
+				.orderBy('date')
+				.reverse()
+				.first();
+
+			if (recentActivity) {
+				const daysSinceLastActivity = moment().diff(moment(recentActivity.date), 'days');
+				if (daysSinceLastActivity > 7) {
+					this.data.stats.baseVaultWordCount = undefined;
+					this.data.stats.baseVaultCharCount = undefined;
+					await this.saveData(this.data);
+				}
+			}
+		}
 	}
 
 	private async backupDataToVaultFolder(data: any) {

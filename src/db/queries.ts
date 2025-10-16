@@ -197,23 +197,49 @@ export async function getWholeVaultCount(
 	vault: Vault,
 	enabledLanguages: Language[],
 ) {
-	const files = vault.getMarkdownFiles();
-	let sum = 0;
-
-	for (let i = 0; i < files.length; i++) {
-		const fileContent = await vault.cachedRead(files[i]);
-		const [fileWordCount, fileCharCount] = await getFileWordAndCharCount(
-			fileContent,
-			enabledLanguages,
-		);
-
-		if (unit == Unit.CHAR) {
-			sum += fileCharCount;
-		} else {
-			sum += fileWordCount;
+	const needsRecalc =
+		state.plugin.data.stats?.baseVaultWordCount === undefined ||
+		state.plugin.data.stats?.baseVaultCharCount === undefined;
+	
+	if (needsRecalc) {
+		if (!state.plugin.data.stats) {
+			return 0;
 		}
+		// expensive!
+		const files = vault.getMarkdownFiles();
+		let wordSum = 0;
+		let charSum = 0;
+
+		for (let i = 0; i < files.length; i++) {
+			const fileContent = await vault.cachedRead(files[i]);
+			const [fileWordCount, fileCharCount] = await getFileWordAndCharCount(
+				fileContent,
+				enabledLanguages,
+			);
+			wordSum += fileWordCount;
+			charSum += fileCharCount;
+		}
+		state.plugin.data.stats.baseVaultWordCount = wordSum;
+		state.plugin.data.stats.baseVaultCharCount = charSum;
 	}
-	return sum;
+
+	// get base count + activity changes
+	const baseCount = unit === Unit.CHAR ? state.plugin.data.stats?.baseVaultCharCount : state.plugin.data.stats?.baseVaultWordCount;
+	if (!baseCount) return 0;
+
+	return baseCount;
+}
+
+async function isBaseVaultCountStale(): Promise<boolean> {
+	const recentActivity = await db.dailyActivity
+		.orderBy('date')
+		.reverse()
+		.first();
+
+	if (!recentActivity) return false; // no activities yet, base count is fine
+
+	const daysSinceLastActivity = moment().diff(moment(recentActivity.date), 'days');
+	return daysSinceLastActivity > 7;
 }
 
 export async function getCurrentCount(
@@ -305,7 +331,7 @@ export async function getCurrentCount(
 			break;
 
 		case TargetCount.WHOLE_VAULT:
-			return await debouncedVaultCountRead(
+			return await getWholeVaultCount(
 				unit,
 				state.plugin.app.vault,
 				state.plugin.data.settings.enabledLanguages,
@@ -320,33 +346,6 @@ export async function getCurrentCount(
 	return calc === CalculationType.AVG ? Math.round(value / totalDays) : value;
 }
 
-let resolveQueue: ((v: number) => void)[] = [];
-export async function debouncedVaultCountRead(
-	unit: Unit,
-	vault: Vault,
-	enabledLanguages: Language[],
-): Promise<number> {
-	if (state.vaultReadTimeout) clearTimeout(state.vaultReadTimeout as any);
-
-	const promise = new Promise<number>((resolve) => {
-		resolveQueue.push(resolve);
-	});
-
-	state.setVaultReadTimeout(
-		setTimeout(async () => {
-			const value = await getWholeVaultCount(
-				unit,
-				vault,
-				enabledLanguages,
-			);
-			state.setCurrentVaultCount(value);
-			resolveQueue.forEach((res) => res(value));
-			resolveQueue = [];
-			state.setVaultReadTimeout(null);
-		}, state.DEBOUNCE_VAULT_READ) as any,
-	);
-	return promise;
-}
 
 export const deleteActivityById = async (entryId: number | undefined) => {
 	if (!entryId) return;

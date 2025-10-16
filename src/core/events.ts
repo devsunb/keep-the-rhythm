@@ -73,6 +73,16 @@ export async function handleEditorChange(
 	const wordsAdded = newWordCount - totalWords;
 	const charsAdded = newCharCount - totalChars;
 
+	if (state.plugin.data.stats && (wordsAdded !== 0 || charsAdded !== 0)) {
+		if (state.plugin.data.stats.baseVaultWordCount !== undefined) {
+			state.plugin.data.stats.baseVaultWordCount += wordsAdded;
+		}
+		if (state.plugin.data.stats.baseVaultCharCount !== undefined) {
+			state.plugin.data.stats.baseVaultCharCount += charsAdded;
+		}
+	}
+
+
 	/**
 	 * @const lastTimeKey Get's last key saved for this DailyActivity
 	 * @const currentTimeKey Rounds current time to multiples of 5 so data is saved in consistent blocks
