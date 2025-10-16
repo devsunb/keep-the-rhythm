@@ -1,6 +1,6 @@
 import { DailyActivity, TimeEntry } from "@/db/types";
 import { getRandomInt } from "./utils";
-import { db } from "@/db/db";
+import { getDB } from "@/db/db";
 
 export async function mockMonthDailyActivity() {
 	const today = new Date();
@@ -50,5 +50,5 @@ export async function mockMonthDailyActivity() {
 		});
 	}
 
-	await db.dailyActivity.bulkAdd(activities);
+	await getDB().dailyActivity.bulkAdd(activities);
 }

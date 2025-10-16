@@ -19,7 +19,7 @@ import {
 	PluginData,
 } from "@/defs/types";
 
-import { db } from "@/db/db";
+import { getDB, initDatabase } from "@/db/db";
 import { EVENTS, state } from "@/core/pluginState";
 import { PluginView, VIEW_TYPE } from "@/ui/views/PluginView";
 
@@ -52,7 +52,10 @@ export default class KeepTheRhythm extends Plugin {
 	async onload() {
 		// #region JSON
 
-		db.dailyActivity.clear(); // restarts DB to ensure data.json is the source of truth
+		state.setPlugin(this);
+
+		initDatabase();
+		getDB().dailyActivity.clear(); // restarts DB to ensure data.json is the source of truth
 		const loadedData = await this.loadData();
 
 		let lastBreakingChangeToSchema = "0.2";
@@ -84,7 +87,6 @@ export default class KeepTheRhythm extends Plugin {
 
 		// #endregion
 
-		state.setPlugin(this);
 		state.setToday();
 
 		this.checkVaultCountStaleness();
@@ -133,8 +135,8 @@ export default class KeepTheRhythm extends Plugin {
 			this.data.stats?.wholeVaultWordCount !== undefined &&
 			this.data.stats?.wholeVaultCharCount !== undefined
 		) {
-			const recentActivity = await db.dailyActivity
-				.orderBy("date")
+			const recentActivity = await getDB()
+				.dailyActivity.orderBy("date")
 				.reverse()
 				.first();
 
@@ -153,11 +155,42 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	private async backupDataToVaultFolder(data: any) {
-		const folderPath = ".keep-the-rhyhtm";
+		const folderPath = ".keep-the-rhythm";
+		const typoOlderPath = ".keep-the-rhyhtm"; // there's a typo here and unfortuntely it will haunt me forever
 		const fileName = `backup-${formatDate(new Date())}-${data.schema}.json`;
 		const backupPath = `${folderPath}/${fileName}`;
 		const jsonData = JSON.stringify(data, null, 2);
 
+		const oldFolderExists =
+			await this.app.vault.adapter.exists(typoOlderPath);
+
+		if (oldFolderExists) {
+			const correctFolderExists =
+				await this.app.vault.adapter.exists(folderPath);
+			if (!correctFolderExists) {
+				await this.app.vault.adapter.mkdir(folderPath);
+			}
+
+			const oldFolderFiles =
+				await this.app.vault.adapter.list(typoOlderPath);
+			for (const filePath of oldFolderFiles.files) {
+				const fileName = filePath.split("/").pop();
+				if (!fileName) continue;
+
+				const newPath = `${folderPath}/${fileName}`;
+				await this.app.vault.adapter.rename(filePath, newPath);
+				console.log(`Moved backup file to correct folder: ${fileName}`);
+			}
+
+			const remaining = await this.app.vault.adapter.list(typoOlderPath);
+			if (
+				remaining.files.length === 0 &&
+				remaining.folders.length === 0
+			) {
+				await this.app.vault.adapter.rmdir(typoOlderPath, true);
+				console.log("Removed old backup folder: .keep-the-rhyhtm");
+			}
+		}
 		const folderExists = await this.app.vault.adapter.exists(folderPath);
 
 		if (!folderExists) {
@@ -172,7 +205,7 @@ export default class KeepTheRhythm extends Plugin {
 
 		// only cleans backups if we have more than 3, which should avoid losing stuff even if its older
 		if (backupFiles.length > 3) {
-			this.cleanOlderBackups(backupFiles);
+			await this.cleanOlderBackups(backupFiles);
 		}
 
 		// This if runs if the user has data from previous schemas, checking
@@ -239,7 +272,7 @@ export default class KeepTheRhythm extends Plugin {
 		this.data.schema = "0.2";
 
 		if (this.data.stats) {
-			await db.dailyActivity.bulkAdd(this.data.stats.dailyActivity);
+			await getDB().dailyActivity.bulkAdd(this.data.stats.dailyActivity);
 		}
 	}
 
@@ -259,7 +292,7 @@ export default class KeepTheRhythm extends Plugin {
 
 			try {
 				/** BulkPut updates the records if they already exist! */
-				await db.dailyActivity.bulkPut(dailyActivitiesFromJSON);
+				await getDB().dailyActivity.bulkPut(dailyActivitiesFromJSON);
 			} catch (error) {
 				console.error(
 					"Failed loading some data, contact the developer.",
@@ -443,7 +476,7 @@ export default class KeepTheRhythm extends Plugin {
 	private async checkPreviousStreak() {
 		if (!this.data.settings) return;
 
-		const activities = await db.dailyActivity.toArray();
+		const activities = await getDB().dailyActivity.toArray();
 
 		for (let i = 0; i < activities.length; i++) {
 			const { totalWords } = utils.sumBothTimeEntries(activities[i]);
@@ -505,7 +538,7 @@ export default class KeepTheRhythm extends Plugin {
 		this.saveDataToJSON();
 		this.backupDataToVaultFolder(this.data);
 
-		await db.dailyActivity.clear();
+		await getDB().dailyActivity.clear();
 	}
 
 	// #endregion
@@ -522,7 +555,9 @@ export default class KeepTheRhythm extends Plugin {
 				let existingActivity;
 
 				if (activity.id) {
-					existingActivity = await db.dailyActivity.get(activity.id);
+					existingActivity = await getDB().dailyActivity.get(
+						activity.id,
+					);
 				}
 
 				/** Find any new activity and add it to the db */
@@ -532,7 +567,7 @@ export default class KeepTheRhythm extends Plugin {
 				) {
 					return;
 				} else {
-					db.dailyActivity.put(activity);
+					getDB().dailyActivity.put(activity);
 				}
 			});
 
@@ -554,7 +589,7 @@ export default class KeepTheRhythm extends Plugin {
 	// #region SAVING DATA
 
 	private async saveDataToJSON() {
-		const dailyActivityDB = await db.dailyActivity.toArray();
+		const dailyActivityDB = await getDB().dailyActivity.toArray();
 
 		this.data.stats = {
 			...this.data.stats,

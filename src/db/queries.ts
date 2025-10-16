@@ -1,5 +1,5 @@
 import { getDateStreaks } from "@/utils/utils";
-import { db } from "./db";
+import { getDB } from "./db";
 import { Language, Unit, TargetCount, CalculationType } from "../defs/types";
 import { formatDate } from "@/utils/dateUtils";
 import { EVENTS, state } from "@/core/pluginState";
@@ -16,14 +16,14 @@ import { handleFileOpen } from "@/core/events";
 const moment = _moment as unknown as typeof _moment.default;
 
 export async function getActivityByDate(date: string) {
-	return await db.dailyActivity.where("date").equals(date).toArray();
+	return await getDB().dailyActivity.where("date").equals(date).toArray();
 }
 
 /** Expects that there is only one activity for that file */
 // TODO: maybe I could check here if the file activity is duplicated to avoid errors.
 export async function getActivtityForFile(date: string, filePath: string) {
-	return await db.dailyActivity
-		.where("[date+filePath]")
+	return await getDB()
+		.dailyActivity.where("[date+filePath]")
 		.equals([date, filePath])
 		.first();
 }
@@ -32,8 +32,8 @@ export async function getTotalValueByDate(
 	date: string,
 	unit: Unit,
 ): Promise<number> {
-	const activities = await db.dailyActivity
-		.where("date")
+	const activities = await getDB()
+		.dailyActivity.where("date")
 		.equals(date)
 		.toArray();
 
@@ -49,8 +49,8 @@ export async function getTotalValueInDateRange(
 	endDate: string,
 	unit: Unit,
 ) {
-	const activities = await db.dailyActivity
-		.where("date")
+	const activities = await getDB()
+		.dailyActivity.where("date")
 		.between(startDate, endDate, true, true)
 		.toArray();
 
@@ -62,8 +62,8 @@ export async function getTotalValueInDateRange(
 }
 
 export async function getWordAndCharCountByTimeKey(date: string) {
-	const activities = await db.dailyActivity
-		.where("date")
+	const activities = await getDB()
+		.dailyActivity.where("date")
 		.equals(date)
 		.toArray();
 
@@ -93,7 +93,7 @@ export async function getWordAndCharCountByTimeKey(date: string) {
 }
 
 export async function removeDuplicatedDailyEntries() {
-	const allEntries = await db.dailyActivity.toArray();
+	const allEntries = await getDB().dailyActivity.toArray();
 
 	// Create a map to track unique entries by date+filePath
 	const uniqueEntries = new Map();
@@ -125,7 +125,7 @@ export async function removeDuplicatedDailyEntries() {
 	// Update all the merged entries
 	for (const entry of uniqueEntries.values()) {
 		if (entry.id !== undefined) {
-			await db.dailyActivity.update(entry.id, {
+			await getDB().dailyActivity.update(entry.id, {
 				changes: entry.changes,
 			});
 		}
@@ -133,7 +133,7 @@ export async function removeDuplicatedDailyEntries() {
 
 	// Delete all duplicates
 	if (duplicateIds.length > 0) {
-		await db.dailyActivity.bulkDelete(duplicateIds);
+		await getDB().dailyActivity.bulkDelete(duplicateIds);
 	}
 
 	return {
@@ -148,13 +148,13 @@ export async function getActivitiesFromLast24Hours(): Promise<DailyActivity[]> {
 	const yesterday = now.clone().subtract(1, "day").format("YYYY-MM-DD");
 	const today = now.format("YYYY-MM-DD");
 
-	const yesterdayActivities = await db.dailyActivity
-		.where("date")
+	const yesterdayActivities = await getDB()
+		.dailyActivity.where("date")
 		.equals(yesterday)
 		.toArray();
 
-	const todayActivities = await db.dailyActivity
-		.where("date")
+	const todayActivities = await getDB()
+		.dailyActivity.where("date")
 		.equals(today)
 		.toArray();
 
@@ -243,8 +243,8 @@ export async function getCurrentCount(
 			// No current session - just sum all past activity for this file
 			const activeFile = state.plugin.app.workspace.getActiveFile();
 			if (activeFile) {
-				const activities = await db.dailyActivity
-					.where("filePath")
+				const activities = await getDB()
+					.dailyActivity.where("filePath")
 					.equals(activeFile.path)
 					.toArray();
 				return activities.reduce((sum, activity) => {
@@ -336,7 +336,7 @@ export async function getCurrentCount(
 
 export const deleteActivityById = async (entryId: number | undefined) => {
 	if (!entryId) return;
-	db.dailyActivity.delete(entryId);
+	getDB().dailyActivity.delete(entryId);
 };
 
 export const deleteActivityFromDate = async (
@@ -347,13 +347,13 @@ export const deleteActivityFromDate = async (
 		state.setCurrentActivity(null);
 	}
 
-	const entry = await db.dailyActivity
-		.where("[date+filePath]")
+	const entry = await getDB()
+		.dailyActivity.where("[date+filePath]")
 		.equals([date, filePath])
 		.first();
 
 	if (entry?.id) {
-		db.dailyActivity.delete(entry.id);
+		getDB().dailyActivity.delete(entry.id);
 		state.emit(EVENTS.REFRESH_EVERYTHING);
 	} else {
 		const notice = new Notice(

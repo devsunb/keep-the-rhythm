@@ -9,7 +9,7 @@ import { DailyActivity } from "@/db/types";
 import { Unit, HeatmapColorModes, HeatmapConfig } from "@/defs/types";
 import { HeatmapCell } from "./HeatmapCell";
 import { compileEvaluator } from "@/core/codeBlockQuery";
-import { db } from "@/db/db";
+import { getDB } from "@/db/db";
 
 interface HeatmapProps {
 	heatmapConfig: HeatmapConfig;
@@ -59,8 +59,8 @@ export const Heatmap = ({
 			let value = query.right.value;
 			if (typeof value === "string") {
 				value = value.startsWith("/") ? value.substring(1) : value;
-				results = await db.dailyActivity
-					.where("[filePath+date]")
+				results = await getDB()
+					.dailyActivity.where("[filePath+date]")
 					.between(
 						[value, startDate],
 						[value + "\uffff", endDate],
@@ -72,16 +72,16 @@ export const Heatmap = ({
 				results = [];
 			}
 		} else if (query && filterFn) {
-			results = await db.dailyActivity
-				.where("date")
+			results = await getDB()
+				.dailyActivity.where("date")
 				.anyOf([...requiredDates])
 				.filter((entry) => {
 					return filterFn!(entry);
 				})
 				.toArray();
 		} else {
-			results = await db.dailyActivity
-				.where("date")
+			results = await getDB()
+				.dailyActivity.where("date")
 				.anyOf([...requiredDates])
 				.toArray();
 		}

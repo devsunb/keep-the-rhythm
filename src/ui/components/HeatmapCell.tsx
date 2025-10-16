@@ -1,7 +1,6 @@
 import { getLeafWithFile } from "../../utils/utils";
 import { formatDate } from "@/utils/dateUtils";
 import { weekdaysNames, monthNames } from "../texts";
-import { db } from "../../db/db";
 import React from "react";
 import { HeatmapColorModes, IntensityConfig } from "../../defs/types";
 import * as obsidian from "obsidian";

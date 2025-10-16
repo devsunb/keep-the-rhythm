@@ -3,7 +3,7 @@ import { CalculationType, TargetCount } from "../defs/types";
 import { DailyActivity, TimeEntry } from "@/db/types";
 import { App } from "obsidian";
 import { Language } from "../defs/types";
-import { db } from "../db/db";
+import { getDB } from "../db/db";
 import { Unit } from "../defs/types";
 import KeepTheRhythm from "../main";
 import { TFile } from "obsidian";
@@ -153,7 +153,7 @@ export function sumTimeEntries(
 }
 
 async function resetDatabase() {
-	await db.delete();
+	await getDB().delete();
 	location.reload(); // Force page reload to reinitialize DB
 }
 

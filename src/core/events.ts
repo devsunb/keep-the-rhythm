@@ -3,7 +3,7 @@ import { TargetCount } from "@/defs/types";
 import { getCurrentCount } from "@/db/queries";
 import { EVENTS, state } from "./pluginState";
 import { TFile, Editor } from "obsidian";
-import { db } from "../db/db";
+import { getDB } from "../db/db";
 import { DailyActivity, TimeEntry } from "@/db/types";
 import KeepTheRhythm from "../main";
 import { getLanguageBasedWordCount } from "@/core/wordCounting";
@@ -147,8 +147,8 @@ export async function handleFileOpen(file: TFile) {
 		return;
 	}
 
-	let entry = await db.dailyActivity
-		.where("[date+filePath]")
+	let entry = await getDB()
+		.dailyActivity.where("[date+filePath]")
 		.equals([state.today, file.path])
 		.first();
 
@@ -168,7 +168,7 @@ export async function handleFileOpen(file: TFile) {
 			changes: [],
 		};
 
-		await db.dailyActivity.add(entry);
+		await getDB().dailyActivity.add(entry);
 	}
 
 	if (entry) state.setCurrentActivity(entry);
@@ -187,8 +187,8 @@ async function flushChangesToDB(activity: DailyActivity) {
 
 	if (!activity) return;
 
-	await db.dailyActivity
-		.where("[date+filePath]")
+	await getDB()
+		.dailyActivity.where("[date+filePath]")
 		.equals([activity.date, activity.filePath])
 		.modify((dailyEntry) => {
 			const existingChanges: TimeEntry[] = dailyEntry.changes || [];
@@ -261,8 +261,8 @@ export async function handleFileDelete(file: TFile) {
 	//FUTURE: correct file delta is only calculated if the user opens the file first
 	// if he doesnt there is no daily activity to get the current file count and it will not consider that into the calculations
 	try {
-		await db.dailyActivity
-			.where("[date+filePath]")
+		await getDB()
+			.dailyActivity.where("[date+filePath]")
 			.equals([state.today, file.path])
 			.modify((dailyEntry) => {
 				let wordSum = 0;
@@ -340,8 +340,8 @@ export function handleFileCreate(file: TFile) {}
  */
 export async function handleFileRename(file: TFile, oldPath: string) {
 	try {
-		await db.dailyActivity
-			.where("filePath")
+		await getDB()
+			.dailyActivity.where("filePath")
 			.equals(oldPath)
 			.modify((dailyEntry) => {
 				dailyEntry.filePath = file.path;
