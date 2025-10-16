@@ -90,7 +90,7 @@ export interface SlotConfig {
 export interface PluginData {
 	settings: Settings;
 	migratedPreviousVersion?: boolean;
-	schema?: "0.2";
+	schema?: "0.2" | "0.3" | string;
 	stats?: {
 		currentStreak?: number;
 		highestStreak?: number;
@@ -98,8 +98,8 @@ export interface PluginData {
 		highestStreakEndDate?: string;
 		daysWithCompletedGoal?: string[];
 		dailyActivity: DailyActivity[];
-		baseVaultWordCount?: number;
-		baseVaultCharCount?: number;
+		wholeVaultWordCount?: number;
+		wholeVaultCharCount?: number;
 	};
 }
 

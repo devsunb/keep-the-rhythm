@@ -74,14 +74,13 @@ export async function handleEditorChange(
 	const charsAdded = newCharCount - totalChars;
 
 	if (state.plugin.data.stats && (wordsAdded !== 0 || charsAdded !== 0)) {
-		if (state.plugin.data.stats.baseVaultWordCount !== undefined) {
-			state.plugin.data.stats.baseVaultWordCount += wordsAdded;
+		if (state.plugin.data.stats.wholeVaultWordCount !== undefined) {
+			state.plugin.data.stats.wholeVaultWordCount += wordsAdded;
 		}
-		if (state.plugin.data.stats.baseVaultCharCount !== undefined) {
-			state.plugin.data.stats.baseVaultCharCount += charsAdded;
+		if (state.plugin.data.stats.wholeVaultCharCount !== undefined) {
+			state.plugin.data.stats.wholeVaultCharCount += charsAdded;
 		}
 	}
-
 
 	/**
 	 * @const lastTimeKey Get's last key saved for this DailyActivity
@@ -133,7 +132,7 @@ export async function handleEditorChange(
  */
 
 export async function handleFileOpen(file: TFile) {
-		if (!file || file.extension !== "md") {
+	if (!file || file.extension !== "md") {
 		return;
 	}
 	state.isUpdatingActivity = true;
@@ -255,7 +254,7 @@ async function checkStreak() {
  * Should probably just get the fileWordCount and consider it as delta in it's dailyActivity?
  */
 export async function handleFileDelete(file: TFile) {
-		// Add this check at the beginning  
+	// Add this check at the beginning
 	if (!file || file.extension !== "md") {
 		return;
 	}

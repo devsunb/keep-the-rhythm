@@ -198,9 +198,9 @@ export async function getWholeVaultCount(
 	enabledLanguages: Language[],
 ) {
 	const needsRecalc =
-		state.plugin.data.stats?.baseVaultWordCount === undefined ||
-		state.plugin.data.stats?.baseVaultCharCount === undefined;
-	
+		state.plugin.data.stats?.wholeVaultWordCount === undefined ||
+		state.plugin.data.stats?.wholeVaultCharCount === undefined;
+
 	if (needsRecalc) {
 		if (!state.plugin.data.stats) {
 			return 0;
@@ -212,34 +212,23 @@ export async function getWholeVaultCount(
 
 		for (let i = 0; i < files.length; i++) {
 			const fileContent = await vault.cachedRead(files[i]);
-			const [fileWordCount, fileCharCount] = await getFileWordAndCharCount(
-				fileContent,
-				enabledLanguages,
-			);
+			const [fileWordCount, fileCharCount] =
+				await getFileWordAndCharCount(fileContent, enabledLanguages);
 			wordSum += fileWordCount;
 			charSum += fileCharCount;
 		}
-		state.plugin.data.stats.baseVaultWordCount = wordSum;
-		state.plugin.data.stats.baseVaultCharCount = charSum;
+		state.plugin.data.stats.wholeVaultWordCount = wordSum;
+		state.plugin.data.stats.wholeVaultCharCount = charSum;
 	}
 
 	// get base count + activity changes
-	const baseCount = unit === Unit.CHAR ? state.plugin.data.stats?.baseVaultCharCount : state.plugin.data.stats?.baseVaultWordCount;
+	const baseCount =
+		unit === Unit.CHAR
+			? state.plugin.data.stats?.wholeVaultCharCount
+			: state.plugin.data.stats?.wholeVaultWordCount;
 	if (!baseCount) return 0;
 
 	return baseCount;
-}
-
-async function isBaseVaultCountStale(): Promise<boolean> {
-	const recentActivity = await db.dailyActivity
-		.orderBy('date')
-		.reverse()
-		.first();
-
-	if (!recentActivity) return false; // no activities yet, base count is fine
-
-	const daysSinceLastActivity = moment().diff(moment(recentActivity.date), 'days');
-	return daysSinceLastActivity > 7;
 }
 
 export async function getCurrentCount(
@@ -258,7 +247,6 @@ export async function getCurrentCount(
 					.where("filePath")
 					.equals(activeFile.path)
 					.toArray();
-				console.log(activities);
 				return activities.reduce((sum, activity) => {
 					return sum + sumTimeEntries(activity, unit, false);
 				}, 0);
@@ -345,7 +333,6 @@ export async function getCurrentCount(
 	const value = await getTotalValueInDateRange(startDate, state.today, unit);
 	return calc === CalculationType.AVG ? Math.round(value / totalDays) : value;
 }
-
 
 export const deleteActivityById = async (entryId: number | undefined) => {
 	if (!entryId) return;

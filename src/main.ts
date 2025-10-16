@@ -55,18 +55,23 @@ export default class KeepTheRhythm extends Plugin {
 		db.dailyActivity.clear(); // restarts DB to ensure data.json is the source of truth
 		const loadedData = await this.loadData();
 
+		let lastBreakingChangeToSchema = "0.2";
+
 		if (loadedData) {
 			await this.backupDataToVaultFolder(loadedData);
 		}
 
 		/** Data is only loaded into dexie if it's the correct schema */
-		if (loadedData && loadedData.schema === "0.2") {
+		if (loadedData && loadedData.schema == lastBreakingChangeToSchema) {
 			await this.initializeDataFromJSON(loadedData);
-		} else if (loadedData && loadedData.schema !== "0.2") {
+		} else if (
+			loadedData &&
+			loadedData.schema !== lastBreakingChangeToSchema
+		) {
 			new Notice("KTR: Migrating data from previous versions...");
 			await this.migrateDataFromJSON(loadedData);
 		} else if (!loadedData) {
-			this.data.schema = "0.2";
+			this.data.schema = lastBreakingChangeToSchema;
 			this.data.stats = {
 				...STARTING_STATS,
 			};
@@ -124,17 +129,23 @@ export default class KeepTheRhythm extends Plugin {
 	}
 
 	private async checkVaultCountStaleness() {
-		if (this.data.stats?.baseVaultWordCount !== undefined && this.data.stats?.baseVaultCharCount !== undefined) {
+		if (
+			this.data.stats?.wholeVaultWordCount !== undefined &&
+			this.data.stats?.wholeVaultCharCount !== undefined
+		) {
 			const recentActivity = await db.dailyActivity
-				.orderBy('date')
+				.orderBy("date")
 				.reverse()
 				.first();
 
 			if (recentActivity) {
-				const daysSinceLastActivity = moment().diff(moment(recentActivity.date), 'days');
+				const daysSinceLastActivity = moment().diff(
+					moment(recentActivity.date),
+					"days",
+				);
 				if (daysSinceLastActivity > 7) {
-					this.data.stats.baseVaultWordCount = undefined;
-					this.data.stats.baseVaultCharCount = undefined;
+					this.data.stats.wholeVaultWordCount = undefined;
+					this.data.stats.wholeVaultCharCount = undefined;
 					await this.saveData(this.data);
 				}
 			}
@@ -143,7 +154,7 @@ export default class KeepTheRhythm extends Plugin {
 
 	private async backupDataToVaultFolder(data: any) {
 		const folderPath = ".keep-the-rhyhtm";
-		const fileName = `backup-${formatDate(new Date())}.json`;
+		const fileName = `backup-${formatDate(new Date())}-${data.schema}.json`;
 		const backupPath = `${folderPath}/${fileName}`;
 		const jsonData = JSON.stringify(data, null, 2);
 
@@ -153,14 +164,25 @@ export default class KeepTheRhythm extends Plugin {
 			await this.app.vault.adapter.mkdir(folderPath);
 		}
 
-		const backups = await this.app.vault.adapter.list(folderPath);
-		const backupFiles = backups.files.filter((f) => f.endsWith(".json"));
+		const filesOnBackupsFolder =
+			await this.app.vault.adapter.list(folderPath);
+		const backupFiles = filesOnBackupsFolder.files.filter((f) =>
+			f.endsWith(".json"),
+		);
 
-		if (data.schema !== "0.2") {
+		// only cleans backups if we have more than 3, which should avoid losing stuff even if its older
+		if (backupFiles.length > 3) {
+			this.cleanOlderBackups(backupFiles);
+		}
+
+		// This if runs if the user has data from previous schemas, checking
+		// every backup to see if the data was already backed up and saving it otherwise.
+		if (data.schema !== "0.3") {
 			// Compare against all existing backups
 			for (const filePath of backupFiles) {
 				const contents = await this.app.vault.adapter.read(filePath);
 				if (contents === jsonData) {
+					// not sure if this is actually working
 					new Notice("KTR: No changes to backup.");
 					return;
 				}
@@ -169,18 +191,44 @@ export default class KeepTheRhythm extends Plugin {
 			await this.app.vault.adapter.write(backupPath, jsonData);
 			new Notice("KTR: New backup saved.");
 		} else {
-			if (backupFiles.length === 0) {
-				await this.app.vault.adapter.write(backupPath, jsonData);
-				new Notice("KTR: First backup created.");
-			} else {
-				// Get most recent file by name (sorted descending)
-				const latestFilePath = backupFiles.sort((a, b) =>
-					b.localeCompare(a),
-				)[0];
-				await this.app.vault.adapter.write(latestFilePath, jsonData);
-				new Notice(
-					`KTR: Backup ${latestFilePath.split("/").pop()} updated.`,
-				);
+			await this.app.vault.adapter.write(backupPath, jsonData);
+			new Notice("KTR: First backup created.");
+		}
+	}
+
+	private async cleanOlderBackups(backupPaths: string[]) {
+		const now = window.moment();
+
+		for (const fullPath of backupPaths) {
+			// Check if file still exists before doing anything
+			const fileExists = await this.app.vault.adapter.exists(fullPath);
+			if (!fileExists) {
+				console.warn(`File already missing: ${fullPath}`);
+				continue;
+			}
+
+			const fileName = fullPath.split("/").pop();
+			if (!fileName) continue;
+
+			// Match: backup-YYYY-MM-DD(-optionalSchema).json
+			const match = fileName.match(
+				/^backup-(\d{4}-\d{2}-\d{2})(?:-[\w\d.]+)?\.json$/,
+			);
+			if (!match) continue;
+
+			const dateStr = match[1];
+			const fileDate = window.moment(dateStr, "YYYY-MM-DD", true);
+
+			if (!fileDate.isValid()) {
+				console.warn(`Skipping file with invalid date: ${fileName}`);
+				continue;
+			}
+
+			const ageInDays = now.diff(fileDate, "days");
+
+			if (ageInDays > 14) {
+				await this.app.vault.adapter.remove(fullPath);
+				console.log(`Deleted old backup: ${fileName}`);
 			}
 		}
 	}
