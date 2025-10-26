@@ -4,7 +4,7 @@ const UNICODE_RANGES = {
 	LATIN: "\\u0041-\\u007A\\u00A0-\\u024F",
 	CJK: "\\u4E00-\\u9FFF\\u3400-\\u4DBF",
 	JAPANESE: "\\u3041-\\u309F\\u30A0-\\u30FF",
-	KOREAN: "\\uAC00-\\uD7AF",
+	KOREAN: "\\u1100-\\u11FF\\u3131-\\u318F\\uAC00-\\uD7AF",
 	CYRILLIC: "\\u0400-\\u052F",
 	GREEK: "\\u0370-\\u03FF",
 	ARABIC: "\\u0600-\\u06FF",
@@ -31,7 +31,7 @@ export function createRegex(langs: Language[]): RegExp {
 	const patterns: string[] = [];
 
 	const charBasedScripts = langs.filter((script) =>
-		["CJK", "JAPANESE", "KOREAN"].includes(script),
+		["CJK", "JAPANESE"].includes(script),
 	);
 
 	if (charBasedScripts.length > 0) {
@@ -42,7 +42,7 @@ export function createRegex(langs: Language[]): RegExp {
 	}
 
 	const wordBasedScripts = langs.filter(
-		(script) => !["CJK", "JAPANESE", "KOREAN"].includes(script),
+		(script) => !["CJK", "JAPANESE"].includes(script),
 	);
 	if (wordBasedScripts.length > 0) {
 		const ranges = wordBasedScripts
