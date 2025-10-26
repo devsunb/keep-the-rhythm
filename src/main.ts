@@ -71,7 +71,7 @@ export default class KeepTheRhythm extends Plugin {
 			loadedData &&
 			loadedData.schema !== lastBreakingChangeToSchema
 		) {
-			new Notice("KTR: Migrating data from previous versions...");
+			console.log("KTR: Migrating data from previous versions...");
 			await this.migrateDataFromJSON(loadedData);
 		} else if (!loadedData) {
 			this.data.schema = lastBreakingChangeToSchema;
@@ -216,16 +216,16 @@ export default class KeepTheRhythm extends Plugin {
 				const contents = await this.app.vault.adapter.read(filePath);
 				if (contents === jsonData) {
 					// not sure if this is actually working
-					new Notice("KTR: No changes to backup.");
+					console.log("KTR: No changes to backup.");
 					return;
 				}
 			}
 			// No identical backup found, save new one
 			await this.app.vault.adapter.write(backupPath, jsonData);
-			new Notice("KTR: New backup saved.");
+			console.log("KTR: New backup saved.");
 		} else {
 			await this.app.vault.adapter.write(backupPath, jsonData);
-			new Notice("KTR: First backup created.");
+			console.log("KTR: First backup created.");
 		}
 	}
 
