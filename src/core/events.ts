@@ -234,7 +234,7 @@ export function cleanDBTimeout() {
  * @function checkStreak
  */
 
-async function checkStreak() {
+export async function checkStreak() {
 	const writtenToday = await getCurrentCount(
 		Unit.WORD,
 		TargetCount.CURRENT_DAY,

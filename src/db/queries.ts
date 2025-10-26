@@ -12,7 +12,7 @@ import { sumTimeEntries } from "@/utils/utils";
 import { DailyActivity } from "./types";
 import { moment as _moment, debounce, Notice, Vault } from "obsidian";
 import { getFileWordAndCharCount } from "@/utils/utils";
-import { handleFileOpen } from "@/core/events";
+import { checkStreak, handleFileOpen } from "@/core/events";
 const moment = _moment as unknown as typeof _moment.default;
 
 export async function getActivityByDate(date: string) {
@@ -260,7 +260,7 @@ export async function getCurrentCount(
 
 	switch (target) {
 		case TargetCount.CURRENT_STREAK:
-			// return state.plugin.data?.stats?.currentStreak || 0;
+			await checkStreak();
 			if (state.plugin.data.stats?.daysWithCompletedGoal) {
 				const { currentStreak } = getDateStreaks(
 					state.plugin.data.stats?.daysWithCompletedGoal,
