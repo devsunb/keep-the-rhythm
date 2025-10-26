@@ -469,6 +469,7 @@ export default class KeepTheRhythm extends Plugin {
 			name: "Check writing goal from previous days",
 			callback: () => {
 				this.checkPreviousStreak();
+				state.emit(EVENTS.REFRESH_EVERYTHING);
 			},
 		});
 	}
@@ -643,16 +644,16 @@ export default class KeepTheRhythm extends Plugin {
 	 * @function activateView opens the SIDEBAR plugin view
 	 */
 	async activateView() {
-		// Return if view already exists
-		if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0) return;
-
-		// Get the leaf and focus on it
-		const leaf = this.app.workspace.getRightLeaf(false);
+		// Use existing view if it exists
+		let leaf = utils.getLeafOfType(VIEW_TYPE);
+		if (!leaf) leaf = this.app.workspace.getRightLeaf(false);
 		if (leaf) {
 			await leaf.setViewState({
 				type: VIEW_TYPE,
 				active: true,
 			});
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			this.app.workspace.revealLeaf(leaf);
 		}
 	}
 }

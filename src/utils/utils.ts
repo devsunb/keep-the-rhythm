@@ -13,6 +13,19 @@ import { WorkspaceLeaf } from "obsidian";
 import { moment as _moment } from "obsidian";
 const moment = _moment as unknown as typeof _moment.default;
 
+export function getLeafOfType(viewType: string): WorkspaceLeaf | null {
+	const { workspace } = this.app as App;
+	const leaves = workspace.getLeavesOfType(viewType);
+	// Find the first leaf with an actually loaded view (not deferred)
+	for (const leaf of leaves) {
+		if (leaf.view && leaf.view.getViewType() === viewType) {
+			return leaf;
+		}
+	}
+	// If no loaded view found, return the first leaf (might be deferred)
+	return leaves.length > 0 ? leaves[0] : null;
+}
+
 export function getLeafWithFile(app: App, file: TFile): WorkspaceLeaf | null {
 	let result: WorkspaceLeaf | null = null;
 
