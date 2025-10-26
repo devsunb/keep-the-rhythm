@@ -151,6 +151,7 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 												await deleteActivityById(
 													entry.id,
 												);
+												state.setCurrentActivity(null);
 												state.emit(
 													EVENTS.REFRESH_EVERYTHING,
 												);
