@@ -5,7 +5,7 @@ import React from "react";
 import { useEffect, useState, useRef } from "react";
 import { formatDate } from "../../utils/dateUtils";
 import { getActivityByDate } from "../../db/queries";
-import { sumTimeEntries, getFileNameWithoutExtension } from "../../utils/utils";
+import { sumTimeEntries, getTitle } from "../../utils/utils";
 import { state, EVENTS } from "../../core/pluginState";
 import { DailyActivity } from "../../db/types";
 import { Unit } from "../../defs/types";
@@ -131,9 +131,7 @@ export const Entries = ({ date = formatDate(new Date()) }: EntriesProps) => {
 										await newLeaf.openFile(file);
 									}}
 								>
-									{getFileNameWithoutExtension(
-										entry.filePath,
-									)}
+									{getTitle(entry.filePath)}
 								</span>
 								<div className="todayEntries__list-item-right">
 									<span className="todayEntries__word-count">

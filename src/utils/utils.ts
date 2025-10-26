@@ -52,6 +52,17 @@ export const getFileNameWithoutExtension = (path: string): string => {
 	return fileName.replace(/\.[^/.]+$/, "");
 };
 
+export function getTitle(path: string): string {
+	const { vault, metadataCache } = this.app as App;
+
+	const filename = getFileNameWithoutExtension(path);
+	const file = vault.getFileByPath(path);
+	if (!file) return filename;
+
+	const metadata = metadataCache.getFileCache(file);
+	return metadata?.frontmatter?.title ?? filename;
+}
+
 export const log = (msg: string) => {
 	console.info(
 		`%cKEEP THE RHYTHM%c ${msg}`,
