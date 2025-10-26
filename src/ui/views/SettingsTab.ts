@@ -227,7 +227,8 @@ export class SettingsTab extends PluginSettingTab {
 					.setPlaceholder("500")
 					.setValue(this.plugin.data.settings.dailyWritingGoal || 500)
 					.onChange(async (value) => {
-						this.plugin.data.settings.dailyWritingGoal = value;
+						this.plugin.data.settings.dailyWritingGoal =
+							value || 500;
 						this.plugin.updateAndSaveEverything();
 					}),
 			);
