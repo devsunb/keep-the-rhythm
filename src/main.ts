@@ -430,18 +430,30 @@ export default class KeepTheRhythm extends Plugin {
 	async onExternalSettingsChange() {
 		try {
 			const newData = (await this.loadData()) as PluginData;
-
 			if (JSON.stringify(newData) == JSON.stringify(this.data)) {
 				return;
+			}
+
+			const newActivities = newData.stats?.dailyActivity || [];
+
+			const allEntries = await getDB().dailyActivity.toArray();
+			const deletedIds = [];
+			for (const entry of allEntries) {
+				if (!newActivities.find((activity) => activity.id === entry.id)) {
+					if (entry.id !== undefined) {
+						deletedIds.push(entry.id);
+					}
+				}
+			}
+			if (deletedIds.length > 0) {
+				await getDB().dailyActivity.bulkDelete(deletedIds);
 			}
 
 			newData.stats?.dailyActivity.forEach(async (activity, index) => {
 				let existingActivity;
 
 				if (activity.id) {
-					existingActivity = await getDB().dailyActivity.get(
-						activity.id,
-					);
+					existingActivity = await getDB().dailyActivity.get(activity.id);
 				}
 
 				/** Find any new activity and add it to the db */
