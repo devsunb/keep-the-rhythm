@@ -449,7 +449,7 @@ export default class KeepTheRhythm extends Plugin {
 				await getDB().dailyActivity.bulkDelete(deletedIds);
 			}
 
-			newData.stats?.dailyActivity.forEach(async (activity, index) => {
+			for (const activity of newActivities) {
 				let existingActivity;
 
 				if (activity.id) {
@@ -458,14 +458,12 @@ export default class KeepTheRhythm extends Plugin {
 
 				/** Find any new activity and add it to the db */
 				if (
-					existingActivity &&
-					JSON.stringify(existingActivity) == JSON.stringify(activity)
+					!existingActivity ||
+					JSON.stringify(existingActivity) != JSON.stringify(activity)
 				) {
-					return;
-				} else {
-					getDB().dailyActivity.put(activity);
+					await getDB().dailyActivity.put(activity);
 				}
-			});
+			}
 
 			/** Assign new external settings*/
 			if (this.data.settings !== newData.settings) {
