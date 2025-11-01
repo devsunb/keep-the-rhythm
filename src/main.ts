@@ -60,10 +60,6 @@ export default class KeepTheRhythm extends Plugin {
 
 		let lastBreakingChangeToSchema = "0.2";
 
-		if (loadedData) {
-			await this.backupDataToVaultFolder(loadedData);
-		}
-
 		/** Data is only loaded into dexie if it's the correct schema */
 		if (loadedData && loadedData.schema == lastBreakingChangeToSchema) {
 			await this.initializeDataFromJSON(loadedData);
@@ -150,118 +146,6 @@ export default class KeepTheRhythm extends Plugin {
 					this.data.stats.wholeVaultCharCount = undefined;
 					await this.saveData(this.data);
 				}
-			}
-		}
-	}
-
-	private async backupDataToVaultFolder(data: any) {
-		const folderPath = ".keep-the-rhythm";
-		const typoOlderPath = ".keep-the-rhyhtm"; // there's a typo here and unfortuntely it will haunt me forever
-		const fileName = `backup-${formatDate(new Date())}-${data.schema}.json`;
-		const backupPath = `${folderPath}/${fileName}`;
-		const jsonData = JSON.stringify(data, null, 2);
-
-		const oldFolderExists =
-			await this.app.vault.adapter.exists(typoOlderPath);
-
-		if (oldFolderExists) {
-			const correctFolderExists =
-				await this.app.vault.adapter.exists(folderPath);
-			if (!correctFolderExists) {
-				await this.app.vault.adapter.mkdir(folderPath);
-			}
-
-			const oldFolderFiles =
-				await this.app.vault.adapter.list(typoOlderPath);
-			for (const filePath of oldFolderFiles.files) {
-				const fileName = filePath.split("/").pop();
-				if (!fileName) continue;
-
-				const newPath = `${folderPath}/${fileName}`;
-				await this.app.vault.adapter.rename(filePath, newPath);
-				console.log(`Moved backup file to correct folder: ${fileName}`);
-			}
-
-			const remaining = await this.app.vault.adapter.list(typoOlderPath);
-			if (
-				remaining.files.length === 0 &&
-				remaining.folders.length === 0
-			) {
-				await this.app.vault.adapter.rmdir(typoOlderPath, true);
-				console.log("Removed old backup folder: .keep-the-rhyhtm");
-			}
-		}
-		const folderExists = await this.app.vault.adapter.exists(folderPath);
-
-		if (!folderExists) {
-			await this.app.vault.adapter.mkdir(folderPath);
-		}
-
-		const filesOnBackupsFolder =
-			await this.app.vault.adapter.list(folderPath);
-		const backupFiles = filesOnBackupsFolder.files.filter((f) =>
-			f.endsWith(".json"),
-		);
-
-		// only cleans backups if we have more than 3, which should avoid losing stuff even if its older
-		if (backupFiles.length > 3) {
-			await this.cleanOlderBackups(backupFiles);
-		}
-
-		// This if runs if the user has data from previous schemas, checking
-		// every backup to see if the data was already backed up and saving it otherwise.
-		if (data.schema !== "0.3") {
-			// Compare against all existing backups
-			for (const filePath of backupFiles) {
-				const contents = await this.app.vault.adapter.read(filePath);
-				if (contents === jsonData) {
-					// not sure if this is actually working
-					console.log("KTR: No changes to backup.");
-					return;
-				}
-			}
-			// No identical backup found, save new one
-			await this.app.vault.adapter.write(backupPath, jsonData);
-			console.log("KTR: New backup saved.");
-		} else {
-			await this.app.vault.adapter.write(backupPath, jsonData);
-			console.log("KTR: First backup created.");
-		}
-	}
-
-	private async cleanOlderBackups(backupPaths: string[]) {
-		const now = window.moment();
-
-		for (const fullPath of backupPaths) {
-			// Check if file still exists before doing anything
-			const fileExists = await this.app.vault.adapter.exists(fullPath);
-			if (!fileExists) {
-				console.warn(`File already missing: ${fullPath}`);
-				continue;
-			}
-
-			const fileName = fullPath.split("/").pop();
-			if (!fileName) continue;
-
-			// Match: backup-YYYY-MM-DD(-optionalSchema).json
-			const match = fileName.match(
-				/^backup-(\d{4}-\d{2}-\d{2})(?:-[\w\d.]+)?\.json$/,
-			);
-			if (!match) continue;
-
-			const dateStr = match[1];
-			const fileDate = window.moment(dateStr, "YYYY-MM-DD", true);
-
-			if (!fileDate.isValid()) {
-				console.warn(`Skipping file with invalid date: ${fileName}`);
-				continue;
-			}
-
-			const ageInDays = now.diff(fileDate, "days");
-
-			if (ageInDays > 14) {
-				await this.app.vault.adapter.remove(fullPath);
-				console.log(`Deleted old backup: ${fileName}`);
 			}
 		}
 	}
@@ -537,7 +421,6 @@ export default class KeepTheRhythm extends Plugin {
 			clearTimeout(this.JsonDebounceTimeout);
 		}
 		this.saveDataToJSON();
-		this.backupDataToVaultFolder(this.data);
 
 		await getDB().dailyActivity.clear();
 	}
